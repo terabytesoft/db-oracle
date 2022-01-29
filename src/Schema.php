@@ -8,7 +8,7 @@ use PDO;
 use Throwable;
 use Yiisoft\Arrays\ArrayHelper;
 use Yiisoft\Db\Cache\SchemaCache;
-use Yiisoft\Db\Connection\ConnectionInterface;
+use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
 use Yiisoft\Db\Constraint\ConstraintFinderInterface;
@@ -28,6 +28,21 @@ use Yiisoft\Db\Schema\Schema as AbstractSchema;
  *
  * @property string $lastInsertID The row ID of the last row inserted, or the last value retrieved from the
  * sequence object. This property is read-only.
+ *
+ * @psalm-type ConstraintArray = array<
+ *   array-key,
+ *   array {
+ *     name: string,
+ *     column_name: string,
+ *     type: string,
+ *     foreign_table_schema: string|null,
+ *     foreign_table_name: string|null,
+ *     foreign_column_name: string|null,
+ *     on_update: string,
+ *     on_delete: string,
+ *     check_expr: string
+ *   }
+ * >
  */
 final class Schema extends AbstractSchema implements ConstraintFinderInterface
 {
@@ -43,7 +58,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
     ];
     protected $tableQuoteCharacter = '"';
 
-    public function __construct(private ConnectionInterface $db, SchemaCache $schemaCache)
+    public function __construct(private ConnectionPDOInterface $db, SchemaCache $schemaCache)
     {
         $this->defaultSchema = strtoupper($db->getDriver()->getUsername());
         parent::__construct($db, $schemaCache);
@@ -186,7 +201,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
      */
     protected function loadTableIndexes(string $tableName): array
     {
-        static $sql = <<<SQL
+        $sql = <<<SQL
         SELECT "ui"."INDEX_NAME" AS "name", "uicol"."COLUMN_NAME" AS "column_name",
         CASE "ui"."UNIQUENESS" WHEN 'UNIQUE' THEN 1 ELSE 0 END AS "index_is_unique",
         CASE WHEN "uc"."CONSTRAINT_NAME" IS NOT NULL THEN 1 ELSE 0 END AS "index_is_primary"
@@ -211,6 +226,11 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         $indexes = ArrayHelper::index($indexes, null, 'name');
 
         $result = [];
+
+        /**
+         * @psalm-var object|string|null $name
+         * @psalm-var array[] $index
+         */
         foreach ($indexes as $name => $index) {
             $columnNames = ArrayHelper::getColumn($index, 'column_name');
 
@@ -424,7 +444,7 @@ SQL;
             /* get the last insert id from the master connection */
             $sequenceName = $this->quoteSimpleTableName($sequenceName);
 
-            return $this->db->useMaster(function (ConnectionInterface $db) use ($sequenceName) {
+            return $this->db->useMaster(function (ConnectionPDOInterface $db) use ($sequenceName) {
                 return $db->createCommand("SELECT {$sequenceName}.CURRVAL FROM DUAL")->queryScalar();
             });
         }
@@ -747,27 +767,26 @@ SQL;
      */
     private function loadTableConstraints(string $tableName, string $returnType)
     {
-        $sql = <<<'SQL'
-SELECT
-    /*+ PUSH_PRED("uc") PUSH_PRED("uccol") PUSH_PRED("fuc") */
-    "uc"."CONSTRAINT_NAME" AS "name",
-    "uccol"."COLUMN_NAME" AS "column_name",
-    "uc"."CONSTRAINT_TYPE" AS "type",
-    "fuc"."OWNER" AS "foreign_table_schema",
-    "fuc"."TABLE_NAME" AS "foreign_table_name",
-    "fuccol"."COLUMN_NAME" AS "foreign_column_name",
-    "uc"."DELETE_RULE" AS "on_delete",
-    "uc"."SEARCH_CONDITION" AS "check_expr"
-FROM "USER_CONSTRAINTS" "uc"
-INNER JOIN "USER_CONS_COLUMNS" "uccol"
-    ON "uccol"."OWNER" = "uc"."OWNER" AND "uccol"."CONSTRAINT_NAME" = "uc"."CONSTRAINT_NAME"
-LEFT JOIN "USER_CONSTRAINTS" "fuc"
-    ON "fuc"."OWNER" = "uc"."R_OWNER" AND "fuc"."CONSTRAINT_NAME" = "uc"."R_CONSTRAINT_NAME"
-LEFT JOIN "USER_CONS_COLUMNS" "fuccol"
-    ON "fuccol"."OWNER" = "fuc"."OWNER" AND "fuccol"."CONSTRAINT_NAME" = "fuc"."CONSTRAINT_NAME" AND "fuccol"."POSITION" = "uccol"."POSITION"
-WHERE "uc"."OWNER" = :schemaName AND "uc"."TABLE_NAME" = :tableName
-ORDER BY "uccol"."POSITION" ASC
-SQL;
+        $sql = <<<SQL
+        SELECT
+            "uc"."CONSTRAINT_NAME" AS "name",
+            "uccol"."COLUMN_NAME" AS "column_name",
+            "uc"."CONSTRAINT_TYPE" AS "type",
+            "fuc"."OWNER" AS "foreign_table_schema",
+            "fuc"."TABLE_NAME" AS "foreign_table_name",
+            "fuccol"."COLUMN_NAME" AS "foreign_column_name",
+            "uc"."DELETE_RULE" AS "on_delete",
+            "uc"."SEARCH_CONDITION" AS "check_expr"
+        FROM "USER_CONSTRAINTS" "uc"
+        INNER JOIN "USER_CONS_COLUMNS" "uccol"
+        ON "uccol"."OWNER" = "uc"."OWNER" AND "uccol"."CONSTRAINT_NAME" = "uc"."CONSTRAINT_NAME"
+        LEFT JOIN "USER_CONSTRAINTS" "fuc"
+        ON "fuc"."OWNER" = "uc"."R_OWNER" AND "fuc"."CONSTRAINT_NAME" = "uc"."R_CONSTRAINT_NAME"
+        LEFT JOIN "USER_CONS_COLUMNS" "fuccol"
+        ON "fuccol"."OWNER" = "fuc"."OWNER" AND "fuccol"."CONSTRAINT_NAME" = "fuc"."CONSTRAINT_NAME" AND "fuccol"."POSITION" = "uccol"."POSITION"
+        WHERE "uc"."OWNER" = :schemaName AND "uc"."TABLE_NAME" = :tableName
+        ORDER BY "uccol"."POSITION" ASC
+        SQL;
 
         $resolvedName = $this->resolveTableName($tableName);
 
@@ -787,7 +806,15 @@ SQL;
             'checks' => [],
         ];
 
+        /**
+         * @var string $type
+         * @var array $names
+         */
         foreach ($constraints as $type => $names) {
+            /**
+             * @psalm-var object|string|null $name
+             * @psalm-var ConstraintArray $constraint
+             */
             foreach ($names as $name => $constraint) {
                 switch ($type) {
                     case 'P':

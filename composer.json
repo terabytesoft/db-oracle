@@ -27,7 +27,6 @@
         "roave/infection-static-analysis-plugin": "^1.6",
         "spatie/phpunit-watcher": "^1.23",
         "vimeo/psalm": "^4.2",
-        "yiisoft/active-record": "dev-master",
         "yiisoft/aliases": "^1.1|^2.0",
         "yiisoft/cache": "^1.0",
         "yiisoft/log": "^1.0"
