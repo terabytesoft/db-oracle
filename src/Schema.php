@@ -8,7 +8,7 @@ use PDO;
 use Throwable;
 use Yiisoft\Arrays\ArrayHelper;
 use Yiisoft\Db\Cache\SchemaCache;
-use Yiisoft\Db\Connection\Connection;
+use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
 use Yiisoft\Db\Constraint\ConstraintFinderInterface;
@@ -41,13 +41,11 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
     protected array $exceptionMap = [
         'ORA-00001: unique constraint' => IntegrityException::class,
     ];
-
     protected $tableQuoteCharacter = '"';
 
-    public function __construct(Connection $db, SchemaCache $schemaCache)
+    public function __construct(private ConnectionInterface $db, SchemaCache $schemaCache)
     {
-        $this->defaultSchema = strtoupper($db->getUsername());
-
+        $this->defaultSchema = strtoupper($db->getDriver()->getUsername());
         parent::__construct($db, $schemaCache);
     }
 
@@ -78,14 +76,14 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
      */
     protected function findSchemaNames(): array
     {
-        static $sql = <<<'SQL'
-SELECT "u"."USERNAME"
-FROM "DBA_USERS" "u"
-WHERE "u"."DEFAULT_TABLESPACE" NOT IN ('SYSTEM', 'SYSAUX')
-ORDER BY "u"."USERNAME" ASC
-SQL;
+        $sql = <<<SQL
+        SELECT "u"."USERNAME"
+        FROM "DBA_USERS" "u"
+        WHERE "u"."DEFAULT_TABLESPACE" NOT IN ('SYSTEM', 'SYSAUX')
+        ORDER BY "u"."USERNAME" ASC
+        SQL;
 
-        return $this->getDb()->createCommand($sql)->queryColumn();
+        return $this->db->createCommand($sql)->queryColumn();
     }
 
     /**
@@ -98,40 +96,34 @@ SQL;
     protected function findTableNames(string $schema = ''): array
     {
         if ($schema === '') {
-            $sql = <<<'SQL'
-SELECT
-    TABLE_NAME
-FROM USER_TABLES
-UNION ALL
-SELECT
-    VIEW_NAME AS TABLE_NAME
-FROM USER_VIEWS
-UNION ALL
-SELECT
-    MVIEW_NAME AS TABLE_NAME
-FROM USER_MVIEWS
-ORDER BY TABLE_NAME
-SQL;
+            $sql = <<<SQL
+            SELECT TABLE_NAME
+            FROM USER_TABLES
+            UNION ALL
+            SELECT VIEW_NAME AS TABLE_NAME
+            FROM USER_VIEWS
+            UNION ALL
+            SELECT MVIEW_NAME AS TABLE_NAME
+            FROM USER_MVIEWS
+            ORDER BY TABLE_NAME
+            SQL;
 
-            $command = $this->getDb()->createCommand($sql);
+            $command = $this->db->createCommand($sql);
         } else {
-            $sql = <<<'SQL'
-SELECT
-    OBJECT_NAME AS TABLE_NAME
-FROM ALL_OBJECTS
-WHERE
-    OBJECT_TYPE IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW')
-    AND OWNER = :schema
-ORDER BY OBJECT_NAME
-SQL;
-            $command = $this->getDb()->createCommand($sql, [':schema' => $schema]);
+            $sql = <<<SQL
+            SELECT OBJECT_NAME AS TABLE_NAME
+            FROM ALL_OBJECTS
+            WHERE OBJECT_TYPE IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW') AND OWNER = :schema
+            ORDER BY OBJECT_NAME
+            SQL;
+            $command = $this->db->createCommand($sql, [':schema' => $schema]);
         }
 
         $rows = $command->queryAll();
         $names = [];
 
         foreach ($rows as $row) {
-            if ($this->getDb()->getSlavePdo()->getAttribute(PDO::ATTR_CASE) === PDO::CASE_LOWER) {
+            if ($this->db->getSlavePdo()->getAttribute(PDO::ATTR_CASE) === PDO::CASE_LOWER) {
                 $row = array_change_key_case($row, CASE_UPPER);
             }
             $names[] = $row['TABLE_NAME'];
@@ -194,25 +186,22 @@ SQL;
      */
     protected function loadTableIndexes(string $tableName): array
     {
-        static $sql = <<<'SQL'
-SELECT
-    /*+ PUSH_PRED("ui") PUSH_PRED("uicol") PUSH_PRED("uc") */
-    "ui"."INDEX_NAME" AS "name",
-    "uicol"."COLUMN_NAME" AS "column_name",
-    CASE "ui"."UNIQUENESS" WHEN 'UNIQUE' THEN 1 ELSE 0 END AS "index_is_unique",
-    CASE WHEN "uc"."CONSTRAINT_NAME" IS NOT NULL THEN 1 ELSE 0 END AS "index_is_primary"
-FROM "SYS"."USER_INDEXES" "ui"
-LEFT JOIN "SYS"."USER_IND_COLUMNS" "uicol"
-    ON "uicol"."INDEX_NAME" = "ui"."INDEX_NAME"
-LEFT JOIN "SYS"."USER_CONSTRAINTS" "uc"
-    ON "uc"."OWNER" = "ui"."TABLE_OWNER" AND "uc"."CONSTRAINT_NAME" = "ui"."INDEX_NAME" AND "uc"."CONSTRAINT_TYPE" = 'P'
-WHERE "ui"."TABLE_OWNER" = :schemaName AND "ui"."TABLE_NAME" = :tableName
-ORDER BY "uicol"."COLUMN_POSITION" ASC
-SQL;
+        static $sql = <<<SQL
+        SELECT "ui"."INDEX_NAME" AS "name", "uicol"."COLUMN_NAME" AS "column_name",
+        CASE "ui"."UNIQUENESS" WHEN 'UNIQUE' THEN 1 ELSE 0 END AS "index_is_unique",
+        CASE WHEN "uc"."CONSTRAINT_NAME" IS NOT NULL THEN 1 ELSE 0 END AS "index_is_primary"
+        FROM "SYS"."USER_INDEXES" "ui"
+        LEFT JOIN "SYS"."USER_IND_COLUMNS" "uicol"
+        ON "uicol"."INDEX_NAME" = "ui"."INDEX_NAME"
+        LEFT JOIN "SYS"."USER_CONSTRAINTS" "uc"
+        ON "uc"."OWNER" = "ui"."TABLE_OWNER" AND "uc"."CONSTRAINT_NAME" = "ui"."INDEX_NAME" AND "uc"."CONSTRAINT_TYPE" = 'P'
+        WHERE "ui"."TABLE_OWNER" = :schemaName AND "ui"."TABLE_NAME" = :tableName
+        ORDER BY "uicol"."COLUMN_POSITION" ASC
+        SQL;
 
         $resolvedName = $this->resolveTableName($tableName);
 
-        $indexes = $this->getDb()->createCommand($sql, [
+        $indexes = $this->db->createCommand($sql, [
             ':schemaName' => $resolvedName->getSchemaName(),
             ':tableName' => $resolvedName->getName(),
         ])->queryAll();
@@ -287,7 +276,7 @@ SQL;
 
     public function createQueryBuilder(): QueryBuilder
     {
-        return new QueryBuilder($this->getDb());
+        return new QueryBuilder($this->db);
     }
 
     /**
@@ -363,7 +352,7 @@ ORDER BY A.COLUMN_ID
 SQL;
 
         try {
-            $columns = $this->getDb()->createCommand($sql, [
+            $columns = $this->db->createCommand($sql, [
                 ':tableName' => $table->getName(),
                 ':schemaName' => $table->getSchemaName(),
             ])->queryAll();
@@ -376,7 +365,7 @@ SQL;
         }
 
         foreach ($columns as $column) {
-            if ($this->getDb()->getSlavePdo()->getAttribute(PDO::ATTR_CASE) === PDO::CASE_LOWER) {
+            if ($this->db->getSlavePdo()->getAttribute(PDO::ATTR_CASE) === PDO::CASE_LOWER) {
                 $column = array_change_key_case($column, CASE_UPPER);
             }
 
@@ -411,7 +400,7 @@ WHERE
     AND UD.TYPE = 'TRIGGER'
     AND UD.REFERENCED_TYPE = 'SEQUENCE'
 SQL;
-        $sequenceName = $this->getDb()->createCommand($sequenceNameSql, [':tableName' => $tableName])->queryScalar();
+        $sequenceName = $this->db->createCommand($sequenceNameSql, [':tableName' => $tableName])->queryScalar();
 
         return $sequenceName === false ? null : $sequenceName;
     }
@@ -431,11 +420,11 @@ SQL;
      */
     public function getLastInsertID(string $sequenceName = ''): string
     {
-        if ($this->getDb()->isActive()) {
+        if ($this->db->isActive()) {
             /* get the last insert id from the master connection */
             $sequenceName = $this->quoteSimpleTableName($sequenceName);
 
-            return $this->getDb()->useMaster(function (Connection $db) use ($sequenceName) {
+            return $this->db->useMaster(function (ConnectionInterface $db) use ($sequenceName) {
                 return $db->createCommand("SELECT {$sequenceName}.CURRVAL FROM DUAL")->queryScalar();
             });
         }
@@ -533,7 +522,7 @@ WHERE
 ORDER BY D.CONSTRAINT_NAME, C.POSITION
 SQL;
 
-        $command = $this->getDb()->createCommand($sql, [
+        $command = $this->db->createCommand($sql, [
             ':tableName' => $table->getName(),
             ':schemaName' => $table->getSchemaName(),
         ]);
@@ -541,7 +530,7 @@ SQL;
         $constraints = [];
 
         foreach ($command->queryAll() as $row) {
-            if ($this->getDb()->getSlavePdo()->getAttribute(PDO::ATTR_CASE) === PDO::CASE_LOWER) {
+            if ($this->db->getSlavePdo()->getAttribute(PDO::ATTR_CASE) === PDO::CASE_LOWER) {
                 $row = array_change_key_case($row, CASE_UPPER);
             }
 
@@ -616,7 +605,7 @@ ORDER BY DIC.TABLE_NAME, DIC.INDEX_NAME, DIC.COLUMN_POSITION
 SQL;
         $result = [];
 
-        $command = $this->getDb()->createCommand($query, [
+        $command = $this->db->createCommand($query, [
             ':tableName' => $table->getName(),
             ':schemaName' => $table->getschemaName(),
         ]);
@@ -692,7 +681,7 @@ SQL;
     {
         $params = [];
         $returnParams = [];
-        $sql = $this->getDb()->getQueryBuilder()->insert($table, $columns, $params);
+        $sql = $this->db->getQueryBuilder()->insert($table, $columns, $params);
         $tableSchema = $this->getTableSchema($table);
         $returnColumns = $tableSchema->getPrimaryKey();
 
@@ -722,7 +711,7 @@ SQL;
             $sql .= ' RETURNING ' . implode(', ', $returning) . ' INTO ' . implode(', ', array_keys($returnParams));
         }
 
-        $command = $this->getDb()->createCommand($sql, $params);
+        $command = $this->db->createCommand($sql, $params);
 
         $command->prepare(false);
 
@@ -782,7 +771,7 @@ SQL;
 
         $resolvedName = $this->resolveTableName($tableName);
 
-        $constraints = $this->getDb()->createCommand($sql, [
+        $constraints = $this->db->createCommand($sql, [
             ':schemaName' => $resolvedName->getSchemaName(),
             ':tableName' => $resolvedName->getName(),
         ])->queryAll();

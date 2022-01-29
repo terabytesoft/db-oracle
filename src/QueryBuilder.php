@@ -7,6 +7,7 @@ namespace Yiisoft\Db\Oracle;
 use Generator;
 use JsonException;
 use Throwable;
+use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Constraint\Constraint;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidArgumentException;
@@ -16,10 +17,10 @@ use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Oracle\Conditions\InConditionBuilder;
 use Yiisoft\Db\Oracle\Conditions\LikeConditionBuilder;
-use Yiisoft\Db\Query\Query;
-use Yiisoft\Db\Query\QueryBuilder as AbstractQueryBuilder;
 use Yiisoft\Db\Query\Conditions\InCondition;
 use Yiisoft\Db\Query\Conditions\LikeCondition;
+use Yiisoft\Db\Query\Query;
+use Yiisoft\Db\Query\QueryBuilder as AbstractQueryBuilder;
 use Yiisoft\Strings\NumericHelper;
 
 /**
@@ -54,6 +55,11 @@ final class QueryBuilder extends AbstractQueryBuilder
         Schema::TYPE_MONEY => 'NUMBER(19,4)',
     ];
 
+    public function __construct(private ConnectionInterface $db)
+    {
+        parent::__construct($db);
+    }
+
     protected function defaultExpressionBuilders(): array
     {
         return array_merge(parent::defaultExpressionBuilders(), [
@@ -71,6 +77,7 @@ final class QueryBuilder extends AbstractQueryBuilder
         }
 
         $filters = [];
+
         if ($this->hasOffset($offset)) {
             $filters[] = 'rowNumId > ' . $offset;
         }
@@ -84,13 +91,10 @@ final class QueryBuilder extends AbstractQueryBuilder
         }
 
         $filter = implode(' AND ', $filters);
-        return <<<EOD
-WITH USER_SQL AS ($sql),
-    PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
-SELECT *
-FROM PAGINATION
-WHERE $filter
-EOD;
+        return <<<SQL
+        WITH USER_SQL AS ($sql), PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
+        SELECT * FROM PAGINATION WHERE $filter
+        SQL;
     }
 
     /**
@@ -103,8 +107,8 @@ EOD;
      */
     public function renameTable(string $oldName, string $newName): string
     {
-        return 'ALTER TABLE ' . $this->getDb()->quoteTableName($oldName) . ' RENAME TO ' .
-            $this->getDb()->quoteTableName($newName);
+        return 'ALTER TABLE ' . $this->db->quoteTableName($oldName) . ' RENAME TO ' .
+            $this->db->quoteTableName($newName);
     }
 
     /**
@@ -127,9 +131,9 @@ EOD;
         $type = $this->getColumnType($type);
 
         return 'ALTER TABLE '
-            . $this->getDb()->quoteTableName($table)
+            . $this->db->quoteTableName($table)
             . ' MODIFY '
-            . $this->getDb()->quoteColumnName($column)
+            . $this->db->quoteColumnName($column)
             . ' ' . $this->getColumnType($type);
     }
 
@@ -143,7 +147,7 @@ EOD;
      */
     public function dropIndex(string $name, string $table): string
     {
-        return 'DROP INDEX ' . $this->getDb()->quoteTableName($name);
+        return 'DROP INDEX ' . $this->db->quoteTableName($name);
     }
 
     /**
@@ -160,7 +164,7 @@ EOD;
      */
     public function executeResetSequence(string $tableName, $value = null): void
     {
-        $tableSchema = $this->getDb()->getTableSchema($tableName);
+        $tableSchema = $this->db->getTableSchema($tableName);
 
         if ($tableSchema === null) {
             throw new InvalidArgumentException("Unknown table: $tableName");
@@ -179,7 +183,7 @@ EOD;
                 );
             }
             /** use master connection to get the biggest PK value */
-            $value = $this->getDb()->useMaster(static function (Connection $db) use ($tableSchema) {
+            $value = $this->db->useMaster(static function (ConnectionInterface $db) use ($tableSchema) {
                 return $db->createCommand(
                     'SELECT MAX("' . $tableSchema->getPrimaryKey()[0] . '") FROM "' . $tableSchema->getName() . '"'
                 )->queryScalar();
@@ -190,8 +194,8 @@ EOD;
          *  Oracle needs at least two queries to reset sequence (see adding transactions and/or use alter method to
          *  avoid grants' issue?)
          */
-        $this->getDb()->createCommand('DROP SEQUENCE "' . $tableSchema->getSequenceName() . '"')->execute();
-        $this->getDb()->createCommand(
+        $this->db->createCommand('DROP SEQUENCE "' . $tableSchema->getSequenceName() . '"')->execute();
+        $this->db->createCommand(
             'CREATE SEQUENCE "' .
             $tableSchema->getSequenceName() .
             '" START WITH ' .
@@ -209,10 +213,10 @@ EOD;
         ?string $delete = null,
         ?string $update = null
     ): string {
-        $sql = 'ALTER TABLE ' . $this->getDb()->quoteTableName($table)
-            . ' ADD CONSTRAINT ' . $this->getDb()->quoteColumnName($name)
+        $sql = 'ALTER TABLE ' . $this->db->quoteTableName($table)
+            . ' ADD CONSTRAINT ' . $this->db->quoteColumnName($name)
             . ' FOREIGN KEY (' . $this->buildColumns($columns) . ')'
-            . ' REFERENCES ' . $this->getDb()->quoteTableName($refTable)
+            . ' REFERENCES ' . $this->db->quoteTableName($refTable)
             . ' (' . $this->buildColumns($refColumns) . ')';
 
         if ($delete !== null) {
@@ -231,14 +235,14 @@ EOD;
         [$names, $placeholders, $values, $params] = parent::prepareInsertValues($table, $columns, $params);
 
         if (!$columns instanceof Query && empty($names)) {
-            $tableSchema = $this->getDb()->getSchema()->getTableSchema($table);
+            $tableSchema = $this->db->getSchema()->getTableSchema($table);
 
             if ($tableSchema !== null) {
                 $tableColumns = $tableSchema->getColumns();
                 $columns = !empty($tableSchema->getPrimaryKey())
                     ? $tableSchema->getPrimaryKey() : [reset($tableColumns)->getName()];
                 foreach ($columns as $name) {
-                    $names[] = $this->getDb()->quoteColumnName($name);
+                    $names[] = $this->db->quoteColumnName($name);
                     $placeholders[] = 'DEFAULT';
                 }
             }
@@ -281,12 +285,12 @@ EOD;
         }
 
         $onCondition = ['or'];
-        $quotedTableName = $this->getDb()->quoteTableName($table);
+        $quotedTableName = $this->db->quoteTableName($table);
 
         foreach ($constraints as $constraint) {
             $constraintCondition = ['and'];
             foreach ($constraint->getColumnNames() as $name) {
-                $quotedName = $this->getDb()->quoteColumnName($name);
+                $quotedName = $this->db->quoteColumnName($name);
                 $constraintCondition[] = "$quotedTableName.$quotedName=\"EXCLUDED\".$quotedName";
             }
 
@@ -303,20 +307,20 @@ EOD;
                 $usingSelectValues[$name] = new Expression($placeholders[$index]);
             }
 
-            $usingSubQuery = (new Query($this->getDb()))
+            $usingSubQuery = (new Query($this->db))
                 ->select($usingSelectValues)
                 ->from('DUAL');
 
             [$usingValues, $params] = $this->build($usingSubQuery, $params);
         }
 
-        $mergeSql = 'MERGE INTO ' . $this->getDb()->quoteTableName($table) . ' '
+        $mergeSql = 'MERGE INTO ' . $this->db->quoteTableName($table) . ' '
             . 'USING (' . ($usingValues ?? ltrim($values, ' ')) . ') "EXCLUDED" '
             . "ON ($on)";
 
         $insertValues = [];
         foreach ($insertNames as $name) {
-            $quotedName = $this->getDb()->quoteColumnName($name);
+            $quotedName = $this->db->quoteColumnName($name);
 
             if (strrpos($quotedName, '.') === false) {
                 $quotedName = '"EXCLUDED".' . $quotedName;
@@ -335,7 +339,7 @@ EOD;
         if ($updateColumns === true) {
             $updateColumns = [];
             foreach ($updateNames as $name) {
-                $quotedName = $this->getDb()->quoteColumnName($name);
+                $quotedName = $this->db->quoteColumnName($name);
 
                 if (strrpos($quotedName, '.') === false) {
                     $quotedName = '"EXCLUDED".' . $quotedName;
@@ -381,7 +385,7 @@ EOD;
             return '';
         }
 
-        $schema = $this->getDb()->getSchema();
+        $schema = $this->db->getSchema();
 
         if (($tableSchema = $schema->getTableSchema($table)) !== null) {
             $columnSchemas = $tableSchema->getColumns();
@@ -438,7 +442,7 @@ EOD;
 
     public function dropCommentFromColumn(string $table, string $column): string
     {
-        return 'COMMENT ON COLUMN ' . $this->getDb()->quoteTableName($table) . '.' . $this->getDb()->quoteColumnName($column) . " IS ''";
+        return 'COMMENT ON COLUMN ' . $this->db->quoteTableName($table) . '.' . $this->db->quoteColumnName($column) . " IS ''";
     }
 
     public function dropCommentFromTable(string $table): string

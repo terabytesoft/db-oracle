@@ -6,9 +6,10 @@ namespace Yiisoft\Db\Oracle\Tests;
 
 use Closure;
 use Yiisoft\Arrays\ArrayHelper;
-use yiisoft\Db\Query\Query;
+use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Oracle\QueryBuilder;
-use Yiisoft\Db\TestUtility\TestQueryBuilderTrait;
+use yiisoft\Db\Query\Query;
+use Yiisoft\Db\TestSupport\TestQueryBuilderTrait;
 
 /**
  * @group oracle
@@ -25,9 +26,9 @@ final class QueryBuilderTest extends TestCase
         '!' => '!!',
     ];
 
-    protected function getQueryBuilder(bool $reset = false): QueryBuilder
+    protected function getQueryBuilder(ConnectionInterface $db): QueryBuilder
     {
-        return new QueryBuilder($this->getConnection($reset));
+        return new QueryBuilder($this->getConnection($db));
     }
 
     /**
@@ -38,7 +39,8 @@ final class QueryBuilderTest extends TestCase
      */
     public function testAddDropCheck(string $sql, Closure $builder): void
     {
-        $this->assertSame($this->getConnection()->quoteSql($sql), $builder($this->getQueryBuilder()));
+        $db = $this->getConnection();
+        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     public function addDropForeignKeysProvider()
@@ -76,7 +78,8 @@ final class QueryBuilderTest extends TestCase
      */
     public function testAddDropForeignKey(string $sql, Closure $builder): void
     {
-        $this->assertSame($this->getConnection()->quoteSql($sql), $builder($this->getQueryBuilder()));
+        $db = $this->getConnection();
+        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**
@@ -87,7 +90,8 @@ final class QueryBuilderTest extends TestCase
      */
     public function testAddDropPrimaryKey(string $sql, Closure $builder): void
     {
-        $this->assertSame($this->getConnection()->quoteSql($sql), $builder($this->getQueryBuilder()));
+        $db = $this->getConnection();
+        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**
@@ -98,7 +102,8 @@ final class QueryBuilderTest extends TestCase
      */
     public function testAddDropUnique(string $sql, Closure $builder): void
     {
-        $this->assertSame($this->getConnection()->quoteSql($sql), $builder($this->getQueryBuilder()));
+        $db = $this->getConnection();
+        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     public function batchInsertProvider(): array
@@ -142,10 +147,9 @@ final class QueryBuilderTest extends TestCase
      */
     public function testBatchInsert(string $table, array $columns, array $value, string $expected): void
     {
-        $queryBuilder = $this->getQueryBuilder();
-
+        $db = $this->getConnection();
+        $queryBuilder = $this->getQueryBuilder($db);
         $sql = $queryBuilder->batchInsert($table, $columns, $value);
-
         $this->assertEquals($expected, $sql);
     }
 
@@ -164,11 +168,8 @@ final class QueryBuilderTest extends TestCase
     public function testBuildCondition($condition, string $expected, array $expectedParams): void
     {
         $db = $this->getConnection();
-
         $query = (new Query($db))->where($condition);
-
-        [$sql, $params] = $this->getQueryBuilder()->build($query);
-
+        [$sql, $params] = $this->getQueryBuilder($db)->build($query);
         $this->assertEquals('SELECT *' . (empty($expected) ? '' : ' WHERE ' . $this->replaceQuotes($expected)), $sql);
         $this->assertEquals($expectedParams, $params);
     }
@@ -187,10 +188,9 @@ final class QueryBuilderTest extends TestCase
      */
     public function testBuildFilterCondition(array $condition, string $expected, array $expectedParams): void
     {
-        $query = (new Query($this->getConnection()))->filterWhere($condition);
-
-        [$sql, $params] = $this->getQueryBuilder()->build($query);
-
+        $db = $this->getConnection();
+        $query = (new Query($db))->filterWhere($condition);
+        [$sql, $params] = $this->getQueryBuilder($db)->build($query);
         $this->assertEquals('SELECT *' . (empty($expected) ? '' : ' WHERE ' . $this->replaceQuotes($expected)), $sql);
         $this->assertEquals($expectedParams, $params);
     }
@@ -205,10 +205,9 @@ final class QueryBuilderTest extends TestCase
      */
     public function testBuildFrom(string $table, string $expected): void
     {
+        $db = $this->getConnection();
         $params = [];
-
-        $sql = $this->getQueryBuilder()->buildFrom([$table], $params);
-
+        $sql = $this->getQueryBuilder($db)->buildFrom([$table], $params);
         $this->assertEquals('FROM ' . $this->replaceQuotes($expected), $sql);
     }
 
@@ -243,11 +242,8 @@ final class QueryBuilderTest extends TestCase
     public function testBuildLikeCondition($condition, string $expected, array $expectedParams): void
     {
         $db = $this->getConnection();
-
         $query = (new Query($db))->where($condition);
-
-        [$sql, $params] = $this->getQueryBuilder()->build($query);
-
+        [$sql, $params] = $this->getQueryBuilder($db)->build($query);
         $this->assertEquals('SELECT *' . (empty($expected) ? '' : ' WHERE ' . $this->replaceQuotes($expected)), $sql);
         $this->assertEquals($expectedParams, $params);
     }
@@ -266,29 +262,20 @@ final class QueryBuilderTest extends TestCase
     public function testBuildWhereExists(string $cond, string $expectedQuerySql): void
     {
         $db = $this->getConnection();
-
         $expectedQueryParams = [];
-
         $subQuery = new Query($db);
-
-        $subQuery->select('1')
-            ->from('Website w');
-
+        $subQuery->select('1')->from('Website w');
         $query = new Query($db);
-
-        $query->select('id')
-            ->from('TotalExample t')
-            ->where([$cond, $subQuery]);
-
-        [$actualQuerySql, $actualQueryParams] = $this->getQueryBuilder()->build($query);
-
+        $query->select('id')->from('TotalExample t')->where([$cond, $subQuery]);
+        [$actualQuerySql, $actualQueryParams] = $this->getQueryBuilder($db)->build($query);
         $this->assertEquals($expectedQuerySql, $actualQuerySql);
         $this->assertEquals($expectedQueryParams, $actualQueryParams);
     }
 
     public function testCommentColumn()
     {
-        $qb = $this->getQueryBuilder();
+        $db = $this->getConnection();
+        $qb = $this->getQueryBuilder($db);
 
         $expected = "COMMENT ON COLUMN [[comment]].[[text]] IS 'This is my column.'";
         $sql = $qb->addCommentOnColumn('comment', 'text', 'This is my column.');
@@ -301,7 +288,8 @@ final class QueryBuilderTest extends TestCase
 
     public function testCommentTable()
     {
-        $qb = $this->getQueryBuilder();
+        $db = $this->getConnection();
+        $qb = $this->getQueryBuilder($db);
 
         $expected = "COMMENT ON TABLE [[comment]] IS 'This is my table.'";
         $sql = $qb->addCommentOnTable('comment', 'This is my table.');
@@ -315,9 +303,7 @@ final class QueryBuilderTest extends TestCase
     public function createDropIndexesProvider(): array
     {
         $result = $this->createDropIndexesProviderTrait();
-
         $result['drop'][0] = 'DROP INDEX [[CN_constraints_2_single]]';
-
         return $result;
     }
 
@@ -328,7 +314,8 @@ final class QueryBuilderTest extends TestCase
      */
     public function testCreateDropIndex(string $sql, Closure $builder): void
     {
-        $this->assertSame($this->getConnection()->quoteSql($sql), $builder($this->getQueryBuilder()));
+        $db = $this->getConnection();
+        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**
@@ -346,18 +333,17 @@ final class QueryBuilderTest extends TestCase
      */
     public function testDelete(string $table, $condition, string $expectedSQL, array $expectedParams): void
     {
+        $db = $this->getConnection();
         $actualParams = [];
-
-        $actualSQL = $this->getQueryBuilder()->delete($table, $condition, $actualParams);
-
+        $actualSQL = $this->getQueryBuilder($db)->delete($table, $condition, $actualParams);
         $this->assertSame($expectedSQL, $actualSQL);
         $this->assertSame($expectedParams, $actualParams);
     }
 
     public function testResetSequence()
     {
-        $db = $this->getConnection(true);
-        $qb = $this->getQueryBuilder();
+        $db = $this->getConnection();
+        $qb = $this->getQueryBuilder($db);
 
         $sqlResult = "SELECT last_number FROM user_sequences WHERE sequence_name = 'item_SEQ'";
 
@@ -386,10 +372,9 @@ final class QueryBuilderTest extends TestCase
      */
     public function testInsert(string $table, $columns, array $params, string $expectedSQL, array $expectedParams): void
     {
+        $db = $this->getConnection();
         $actualParams = $params;
-
-        $actualSQL = $this->getQueryBuilder()->insert($table, $columns, $actualParams);
-
+        $actualSQL = $this->getQueryBuilder($db)->insert($table, $columns, $actualParams);
         $this->assertSame($expectedSQL, $actualSQL);
         $this->assertSame($expectedParams, $actualParams);
     }
@@ -415,10 +400,9 @@ final class QueryBuilderTest extends TestCase
         string $expectedSQL,
         array $expectedParams
     ): void {
+        $db = $this->getConnection();
         $actualParams = [];
-
-        $actualSQL = $this->getQueryBuilder()->update($table, $columns, $condition, $actualParams);
-
+        $actualSQL = $this->getQueryBuilder($db)->update($table, $columns, $condition, $actualParams);
         $this->assertSame($expectedSQL, $actualSQL);
         $this->assertSame($expectedParams, $actualParams);
     }
@@ -436,25 +420,22 @@ final class QueryBuilderTest extends TestCase
                 3 => 'MERGE INTO "T_upsert" USING (SELECT :qp0 AS "email", :qp1 AS "address", :qp2 AS "status", :qp3 AS "profile_id" FROM "DUAL") "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN NOT MATCHED THEN INSERT ("email", "address", "status", "profile_id") VALUES ("EXCLUDED"."email", "EXCLUDED"."address", "EXCLUDED"."status", "EXCLUDED"."profile_id")',
             ],
             'query' => [
-                3 => 'MERGE INTO "T_upsert" USING (WITH USER_SQL AS (SELECT "email", 2 AS "status" FROM "customer" WHERE "name"=:qp0),
-    PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
-SELECT *
-FROM PAGINATION
-WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN MATCHED THEN UPDATE SET "status"="EXCLUDED"."status" WHEN NOT MATCHED THEN INSERT ("email", "status") VALUES ("EXCLUDED"."email", "EXCLUDED"."status")',
+                3 => <<<SQL
+                MERGE INTO "T_upsert" USING (WITH USER_SQL AS (SELECT "email", 2 AS "status" FROM "customer" WHERE "name"=:qp0), PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
+                SELECT * FROM PAGINATION WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN MATCHED THEN UPDATE SET "status"="EXCLUDED"."status" WHEN NOT MATCHED THEN INSERT ("email", "status") VALUES ("EXCLUDED"."email", "EXCLUDED"."status")
+                SQL,
             ],
             'query with update part' => [
-                3 => 'MERGE INTO "T_upsert" USING (WITH USER_SQL AS (SELECT "email", 2 AS "status" FROM "customer" WHERE "name"=:qp0),
-    PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
-SELECT *
-FROM PAGINATION
-WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN MATCHED THEN UPDATE SET "address"=:qp1, "status"=:qp2, "orders"=T_upsert.orders + 1 WHEN NOT MATCHED THEN INSERT ("email", "status") VALUES ("EXCLUDED"."email", "EXCLUDED"."status")',
+                3 => <<<SQL
+                MERGE INTO "T_upsert" USING (WITH USER_SQL AS (SELECT "email", 2 AS "status" FROM "customer" WHERE "name"=:qp0), PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
+                SELECT * FROM PAGINATION WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN MATCHED THEN UPDATE SET "address"=:qp1, "status"=:qp2, "orders"=T_upsert.orders + 1 WHEN NOT MATCHED THEN INSERT ("email", "status") VALUES ("EXCLUDED"."email", "EXCLUDED"."status")
+                SQL,
             ],
             'query without update part' => [
-                3 => 'MERGE INTO "T_upsert" USING (WITH USER_SQL AS (SELECT "email", 2 AS "status" FROM "customer" WHERE "name"=:qp0),
-    PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
-SELECT *
-FROM PAGINATION
-WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN NOT MATCHED THEN INSERT ("email", "status") VALUES ("EXCLUDED"."email", "EXCLUDED"."status")',
+                3 => <<<SQL
+                MERGE INTO "T_upsert" USING (WITH USER_SQL AS (SELECT "email", 2 AS "status" FROM "customer" WHERE "name"=:qp0), PAGINATION AS (SELECT USER_SQL.*, rownum as rowNumId FROM USER_SQL)
+                SELECT * FROM PAGINATION WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN NOT MATCHED THEN INSERT ("email", "status") VALUES ("EXCLUDED"."email", "EXCLUDED"."status")
+                SQL,
             ],
             'values and expressions' => [
                 3 => 'INSERT INTO {{%T_upsert}} ({{%T_upsert}}.[[email]], [[ts]]) VALUES (:qp0, now())',
@@ -499,10 +480,9 @@ WHERE rownum <= 1) "EXCLUDED" ON ("T_upsert"."email"="EXCLUDED"."email") WHEN NO
      */
     public function testUpsert(string $table, $insertColumns, $updateColumns, $expectedSQL, array $expectedParams): void
     {
+        $db = $this->getConnection();
         $actualParams = [];
-
-        $actualSQL = $this->getQueryBuilder()
-            ->upsert($table, $insertColumns, $updateColumns, $actualParams);
+        $actualSQL = $this->getQueryBuilder($db)->upsert($table, $insertColumns, $updateColumns, $actualParams);
 
         if (is_string($expectedSQL)) {
             $this->assertEqualsWithoutLE($expectedSQL, $actualSQL);

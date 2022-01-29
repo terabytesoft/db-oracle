@@ -23,6 +23,7 @@ final class InConditionBuilder extends AbstractInConditionBuilder
     {
         /** @var Incondition $expression */
         $splitCondition = $this->splitCondition($expression, $params);
+
         if ($splitCondition !== null) {
             return $splitCondition;
         }
@@ -51,14 +52,17 @@ final class InConditionBuilder extends AbstractInConditionBuilder
 
         $maxParameters = 1000;
         $count = count($values);
+
         if ($count <= $maxParameters) {
             return null;
         }
 
         $slices = [];
+
         for ($i = 0; $i < $count; $i += $maxParameters) {
             $slices[] = $this->queryBuilder->createConditionFromArray([$operator, $column, array_slice($values, $i, $maxParameters)]);
         }
+
         array_unshift($slices, ($operator === 'IN') ? 'OR' : 'AND');
 
         return $this->queryBuilder->buildCondition($slices, $params);

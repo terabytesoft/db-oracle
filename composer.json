@@ -18,8 +18,8 @@
     "require": {
         "ext-pdo": "*",
         "php": "^8.0",
+        "terabytesoft/db": "@dev",
         "yiisoft/arrays": "^2.0",
-        "yiisoft/db": "^3.0",
         "yiisoft/strings": "^2.0"
     },
     "require-dev": {
