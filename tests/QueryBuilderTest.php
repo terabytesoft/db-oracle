@@ -40,7 +40,7 @@ final class QueryBuilderTest extends TestCase
     public function testAddDropCheck(string $sql, Closure $builder): void
     {
         $db = $this->getConnection();
-        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
+        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     public function addDropForeignKeysProvider()
@@ -79,7 +79,7 @@ final class QueryBuilderTest extends TestCase
     public function testAddDropForeignKey(string $sql, Closure $builder): void
     {
         $db = $this->getConnection();
-        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
+        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**
@@ -91,7 +91,7 @@ final class QueryBuilderTest extends TestCase
     public function testAddDropPrimaryKey(string $sql, Closure $builder): void
     {
         $db = $this->getConnection();
-        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
+        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**
@@ -103,7 +103,7 @@ final class QueryBuilderTest extends TestCase
     public function testAddDropUnique(string $sql, Closure $builder): void
     {
         $db = $this->getConnection();
-        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
+        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     public function batchInsertProvider(): array
@@ -213,12 +213,13 @@ final class QueryBuilderTest extends TestCase
 
     public function buildLikeConditionsProvider(): array
     {
+        $db = $this->getConnection();
         /*
          * Different pdo_oci8 versions may or may not implement PDO::quote(), so
          * \Yiisoft\Db\Schema\Schema::quoteValue() may or may not quote \.
          */
         try {
-            $encodedBackslash = substr($this->getDb()->quoteValue('\\\\'), 1, -1);
+            $encodedBackslash = substr($db->getQuoter()->quoteValue('\\\\'), 1, -1);
             $this->likeParameterReplacements[$encodedBackslash] = '\\';
         } catch (\Exception $e) {
             $this->markTestSkipped('Could not execute Connection::quoteValue() method: ' . $e->getMessage());
@@ -315,7 +316,7 @@ final class QueryBuilderTest extends TestCase
     public function testCreateDropIndex(string $sql, Closure $builder): void
     {
         $db = $this->getConnection();
-        $this->assertSame($db->quoteSql($sql), $builder($this->getQueryBuilder($db)));
+        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**

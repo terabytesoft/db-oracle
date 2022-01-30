@@ -57,7 +57,7 @@ final class QueryBuilder extends AbstractQueryBuilder
 
     public function __construct(private ConnectionInterface $db)
     {
-        parent::__construct($db);
+        parent::__construct($db->getQuoter(), $db->getSchema());
     }
 
     protected function defaultExpressionBuilders(): array
@@ -107,8 +107,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function renameTable(string $oldName, string $newName): string
     {
-        return 'ALTER TABLE ' . $this->db->quoteTableName($oldName) . ' RENAME TO ' .
-            $this->db->quoteTableName($newName);
+        return 'ALTER TABLE ' . $this->db->getQuoter()->quoteTableName($oldName) . ' RENAME TO ' .
+            $this->db->getQuoter()->quoteTableName($newName);
     }
 
     /**
@@ -131,9 +131,9 @@ final class QueryBuilder extends AbstractQueryBuilder
         $type = $this->getColumnType($type);
 
         return 'ALTER TABLE '
-            . $this->db->quoteTableName($table)
+            . $this->db->getQuoter()->quoteTableName($table)
             . ' MODIFY '
-            . $this->db->quoteColumnName($column)
+            . $this->db->getQuoter()->quoteColumnName($column)
             . ' ' . $this->getColumnType($type);
     }
 
@@ -147,7 +147,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function dropIndex(string $name, string $table): string
     {
-        return 'DROP INDEX ' . $this->db->quoteTableName($name);
+        return 'DROP INDEX ' . $this->db->getQuoter()->quoteTableName($name);
     }
 
     /**
@@ -213,10 +213,10 @@ final class QueryBuilder extends AbstractQueryBuilder
         ?string $delete = null,
         ?string $update = null
     ): string {
-        $sql = 'ALTER TABLE ' . $this->db->quoteTableName($table)
-            . ' ADD CONSTRAINT ' . $this->db->quoteColumnName($name)
+        $sql = 'ALTER TABLE ' . $this->db->getQuoter()->quoteTableName($table)
+            . ' ADD CONSTRAINT ' . $this->db->getQuoter()->quoteColumnName($name)
             . ' FOREIGN KEY (' . $this->buildColumns($columns) . ')'
-            . ' REFERENCES ' . $this->db->quoteTableName($refTable)
+            . ' REFERENCES ' . $this->db->getQuoter()->quoteTableName($refTable)
             . ' (' . $this->buildColumns($refColumns) . ')';
 
         if ($delete !== null) {
@@ -242,7 +242,7 @@ final class QueryBuilder extends AbstractQueryBuilder
                 $columns = !empty($tableSchema->getPrimaryKey())
                     ? $tableSchema->getPrimaryKey() : [reset($tableColumns)->getName()];
                 foreach ($columns as $name) {
-                    $names[] = $this->db->quoteColumnName($name);
+                    $names[] = $this->db->getQuoter()->quoteColumnName($name);
                     $placeholders[] = 'DEFAULT';
                 }
             }
@@ -285,12 +285,12 @@ final class QueryBuilder extends AbstractQueryBuilder
         }
 
         $onCondition = ['or'];
-        $quotedTableName = $this->db->quoteTableName($table);
+        $quotedTableName = $this->db->getQuoter()->quoteTableName($table);
 
         foreach ($constraints as $constraint) {
             $constraintCondition = ['and'];
             foreach ($constraint->getColumnNames() as $name) {
-                $quotedName = $this->db->quoteColumnName($name);
+                $quotedName = $this->db->getQuoter()->quoteColumnName($name);
                 $constraintCondition[] = "$quotedTableName.$quotedName=\"EXCLUDED\".$quotedName";
             }
 
@@ -314,13 +314,13 @@ final class QueryBuilder extends AbstractQueryBuilder
             [$usingValues, $params] = $this->build($usingSubQuery, $params);
         }
 
-        $mergeSql = 'MERGE INTO ' . $this->db->quoteTableName($table) . ' '
+        $mergeSql = 'MERGE INTO ' . $this->db->getQuoter()->quoteTableName($table) . ' '
             . 'USING (' . ($usingValues ?? ltrim($values, ' ')) . ') "EXCLUDED" '
             . "ON ($on)";
 
         $insertValues = [];
         foreach ($insertNames as $name) {
-            $quotedName = $this->db->quoteColumnName($name);
+            $quotedName = $this->db->getQuoter()->quoteColumnName($name);
 
             if (strrpos($quotedName, '.') === false) {
                 $quotedName = '"EXCLUDED".' . $quotedName;
@@ -339,7 +339,7 @@ final class QueryBuilder extends AbstractQueryBuilder
         if ($updateColumns === true) {
             $updateColumns = [];
             foreach ($updateNames as $name) {
-                $quotedName = $this->db->quoteColumnName($name);
+                $quotedName = $this->db->getQuoter()->quoteColumnName($name);
 
                 if (strrpos($quotedName, '.') === false) {
                     $quotedName = '"EXCLUDED".' . $quotedName;
@@ -403,7 +403,7 @@ final class QueryBuilder extends AbstractQueryBuilder
                 }
 
                 if (is_string($value)) {
-                    $value = $schema->quoteValue($value);
+                    $value = $this->db->getQuoter()->quoteValue($value);
                 } elseif (is_float($value)) {
                     /* ensure type cast always has . as decimal separator in all locales */
                     $value = NumericHelper::normalize($value);
@@ -426,10 +426,10 @@ final class QueryBuilder extends AbstractQueryBuilder
         }
 
         foreach ($columns as $i => $name) {
-            $columns[$i] = $schema->quoteColumnName($name);
+            $columns[$i] = $this->db->getQuoter()->quoteColumnName($name);
         }
 
-        $tableAndColumns = ' INTO ' . $schema->quoteTableName($table)
+        $tableAndColumns = ' INTO ' . $this->db->getQuoter()->quoteTableName($table)
             . ' (' . implode(', ', $columns) . ') VALUES ';
 
         return 'INSERT ALL ' . $tableAndColumns . implode($tableAndColumns, $values) . ' SELECT 1 FROM SYS.DUAL';
@@ -442,11 +442,11 @@ final class QueryBuilder extends AbstractQueryBuilder
 
     public function dropCommentFromColumn(string $table, string $column): string
     {
-        return 'COMMENT ON COLUMN ' . $this->db->quoteTableName($table) . '.' . $this->db->quoteColumnName($column) . " IS ''";
+        return 'COMMENT ON COLUMN ' . $this->db->getQuoter()->quoteTableName($table) . '.' . $this->db->getQuoter()->quoteColumnName($column) . " IS ''";
     }
 
     public function dropCommentFromTable(string $table): string
     {
-        return 'COMMENT ON TABLE ' . $this->getDb()->quoteTableName($table) . " IS ''";
+        return 'COMMENT ON TABLE ' . $this->db->getQuoter()->quoteTableName($table) . " IS ''";
     }
 }

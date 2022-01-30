@@ -59,7 +59,7 @@ class TestCase extends AbstractTestCase
         $this->db?->close();
         unset(
             $this->cache,
-            $this->connection,
+            $this->db,
             $this->logger,
             $this->queryCache,
             $this->schemaCache,
