@@ -384,7 +384,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      *
      * @param string $table the table that new rows will be inserted into.
      * @param array $columns the column names.
-     * @param array|Generator $rows the rows to be batch inserted into the table.
+     * @param Generator|iterable $rows the rows to be batch inserted into the table.
      * @param array $params
      *
      * @throws Exception|InvalidArgumentException|InvalidConfigException|NotSupportedException

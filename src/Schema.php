@@ -725,7 +725,7 @@ SQL;
 
                 $returnParams[$phName]['size'] = $columnSchemas[$name]->getSize() ?? -1;
 
-                $returning[] = $this->quoteColumnName($name);
+                $returning[] = $this->db->getQuoter()->quoteColumnName($name);
             }
 
             $sql .= ' RETURNING ' . implode(', ', $returning) . ' INTO ' . implode(', ', array_keys($returnParams));

@@ -94,7 +94,7 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
     public function close(): void
     {
         if (!empty($this->master)) {
-            /** @var ConnectionPDOMysql */
+            /** @var ConnectionPDOOracle */
             $db = $this->master;
 
             if ($this->pdo === $db->getPDO()) {
@@ -171,7 +171,7 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
 
     public function getSlavePdo(bool $fallbackToMaster = true): ?PDO
     {
-        /** @var ConnectionPDOMysql|null $db */
+        /** @var ConnectionPDOOracle|null $db */
         $db = $this->getSlave(false);
 
         if ($db === null) {
@@ -193,7 +193,7 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         }
 
         if (!empty($this->masters)) {
-            /** @var ConnectionPDOMysql|null */
+            /** @var ConnectionPDOOracle|null */
             $db = $this->getMaster();
 
             if ($db !== null) {
