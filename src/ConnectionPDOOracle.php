@@ -15,7 +15,7 @@ use Yiisoft\Db\Driver\PDODriver;
 use Yiisoft\Db\Driver\PDOInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
-use Yiisoft\Db\Schema\QuoterInterface;
+use Yiisoft\Db\Schema\Quoter;
 
 use function constant;
 
@@ -151,7 +151,7 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         return $this->queryBuilder;
     }
 
-    public function getQuoter(): QuoterInterface
+    public function getQuoter(): Quoter
     {
         if ($this->quoter === null) {
             $this->quoter = new Quoter('"', '"', $this->getTablePrefix());
