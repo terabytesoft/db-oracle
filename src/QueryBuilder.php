@@ -60,12 +60,24 @@ final class QueryBuilder extends AbstractQueryBuilder
         parent::__construct($db->getQuoter(), $db->getSchema());
     }
 
-    protected function defaultExpressionBuilders(): array
+    public function addDefaultValue(string $name, string $table, string $column, $value): string
     {
-        return array_merge(parent::defaultExpressionBuilders(), [
-            InCondition::class => InConditionBuilder::class,
-            LikeCondition::class => LikeConditionBuilder::class,
-        ]);
+        throw new NotSupportedException('Oracle does not support adding default value constraints.');
+    }
+
+    public function checkIntegrity(string $schema = '', string $table = '', bool $check = true): string
+    {
+        throw new NotSupportedException('Oracle does not support enabling/disabling integrity check.');
+    }
+
+    public function dropDefaultValue(string $name, string $table): string
+    {
+        throw new NotSupportedException('Oracle does not support dropping default value constraints.');
+    }
+
+    public function resetSequence(string $tableName, array|int|string|null $value = null): string
+    {
+        throw new NotSupportedException('Oracle does not support resetting sequence.');
     }
 
     public function buildOrderByAndLimit(string $sql, array $orderBy, $limit, $offset, array &$params = []): string
@@ -448,5 +460,13 @@ final class QueryBuilder extends AbstractQueryBuilder
     public function dropCommentFromTable(string $table): string
     {
         return 'COMMENT ON TABLE ' . $this->db->getQuoter()->quoteTableName($table) . " IS ''";
+    }
+
+    protected function defaultExpressionBuilders(): array
+    {
+        return array_merge(parent::defaultExpressionBuilders(), [
+            InCondition::class => InConditionBuilder::class,
+            LikeCondition::class => LikeConditionBuilder::class,
+        ]);
     }
 }
