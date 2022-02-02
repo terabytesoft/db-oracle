@@ -2,20 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Yiisoft\Db\Oracle;
+namespace Yiisoft\Db\Oracle\PDO;
 
 use PDO;
 use PDOException;
 use Psr\Log\LogLevel;
 use Yiisoft\Db\Cache\QueryCache;
 use Yiisoft\Db\Cache\SchemaCache;
+use Yiisoft\Db\Command\CommandInterface;
 use Yiisoft\Db\Connection\Connection;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Driver\PDODriver;
 use Yiisoft\Db\Driver\PDOInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
+use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\Quoter;
+use Yiisoft\Db\Schema\QuoterInterface;
+use Yiisoft\Db\Schema\SchemaInterface;
 
 use function constant;
 
@@ -24,10 +28,11 @@ use function constant;
  */
 final class ConnectionPDOOracle extends Connection implements ConnectionPDOInterface
 {
+    private ?CommandInterface $command = null;
     private ?PDO $pdo = null;
-    private ?QueryBuilder $queryBuilder = null;
-    private ?Quoter $quoter = null;
-    private ?Schema $schema = null;
+    private ?QueryBuilderInterface $queryBuilder = null;
+    private ?QuoterInterface $quoter = null;
+    private ?SchemaInterface $schema = null;
 
     public function __construct(
         private PDODriver $driver,
@@ -72,13 +77,19 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         return array_keys($fields);
     }
 
-    public function createCommand(?string $sql = null, array $params = []): Command
+    public function createCommand(?string $sql = null, array $params = []): CommandPDOOracle
     {
-        if ($sql !== null) {
-            $sql = $this->getQuoter()->quoteSql($sql);
-        }
+        $command = new CommandPDOOracle(
+            $this,
+            $this->getQueryBuilder(),
+            $this->queryCache,
+            $this->getQuoter(),
+            $this->getSchema()
+        );
 
-        $command = new Command($this, $this->queryCache, $sql);
+        if ($sql !== null) {
+            $command->setSql($sql);
+        }
 
         if ($this->logger !== null) {
             $command->setLogger($this->logger);
@@ -142,16 +153,16 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         return $this->pdo;
     }
 
-    public function getQueryBuilder(): QueryBuilder
+    public function getQueryBuilder(): QueryBuilderInterface
     {
         if ($this->queryBuilder === null) {
-            $this->queryBuilder = new QueryBuilder($this);
+            $this->queryBuilder = new QueryBuilderPDOOracle($this);
         }
 
         return $this->queryBuilder;
     }
 
-    public function getQuoter(): Quoter
+    public function getQuoter(): QuoterInterface
     {
         if ($this->quoter === null) {
             $this->quoter = new Quoter('"', '"', $this->getTablePrefix());
@@ -160,10 +171,10 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         return $this->quoter;
     }
 
-    public function getSchema(): Schema
+    public function getSchema(): SchemaInterface
     {
         if ($this->schema === null) {
-            $this->schema = new Schema($this, $this->schemaCache);
+            $this->schema = new SchemaPDOOracle($this, $this->schemaCache);
         }
 
         return $this->schema;

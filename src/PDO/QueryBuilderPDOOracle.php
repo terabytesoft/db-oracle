@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Yiisoft\Db\Oracle;
+namespace Yiisoft\Db\Oracle\PDO;
 
 use Generator;
 use JsonException;
@@ -26,33 +26,33 @@ use Yiisoft\Strings\NumericHelper;
 /**
  * QueryBuilder is the query builder for Oracle databases.
  */
-final class QueryBuilder extends AbstractQueryBuilder
+final class QueryBuilderPDOOracle extends AbstractQueryBuilder
 {
     /**
      * @var array mapping from abstract column types (keys) to physical column types (values).
      */
     protected array $typeMap = [
-        Schema::TYPE_PK => 'NUMBER(10) NOT NULL PRIMARY KEY',
-        Schema::TYPE_UPK => 'NUMBER(10) UNSIGNED NOT NULL PRIMARY KEY',
-        Schema::TYPE_BIGPK => 'NUMBER(20) NOT NULL PRIMARY KEY',
-        Schema::TYPE_UBIGPK => 'NUMBER(20) UNSIGNED NOT NULL PRIMARY KEY',
-        Schema::TYPE_CHAR => 'CHAR(1)',
-        Schema::TYPE_STRING => 'VARCHAR2(255)',
-        Schema::TYPE_TEXT => 'CLOB',
-        Schema::TYPE_TINYINT => 'NUMBER(3)',
-        Schema::TYPE_SMALLINT => 'NUMBER(5)',
-        Schema::TYPE_INTEGER => 'NUMBER(10)',
-        Schema::TYPE_BIGINT => 'NUMBER(20)',
-        Schema::TYPE_FLOAT => 'NUMBER',
-        Schema::TYPE_DOUBLE => 'NUMBER',
-        Schema::TYPE_DECIMAL => 'NUMBER',
-        Schema::TYPE_DATETIME => 'TIMESTAMP',
-        Schema::TYPE_TIMESTAMP => 'TIMESTAMP',
-        Schema::TYPE_TIME => 'TIMESTAMP',
-        Schema::TYPE_DATE => 'DATE',
-        Schema::TYPE_BINARY => 'BLOB',
-        Schema::TYPE_BOOLEAN => 'NUMBER(1)',
-        Schema::TYPE_MONEY => 'NUMBER(19,4)',
+        SchemaPDOOracle::TYPE_PK => 'NUMBER(10) NOT NULL PRIMARY KEY',
+        SchemaPDOOracle::TYPE_UPK => 'NUMBER(10) UNSIGNED NOT NULL PRIMARY KEY',
+        SchemaPDOOracle::TYPE_BIGPK => 'NUMBER(20) NOT NULL PRIMARY KEY',
+        SchemaPDOOracle::TYPE_UBIGPK => 'NUMBER(20) UNSIGNED NOT NULL PRIMARY KEY',
+        SchemaPDOOracle::TYPE_CHAR => 'CHAR(1)',
+        SchemaPDOOracle::TYPE_STRING => 'VARCHAR2(255)',
+        SchemaPDOOracle::TYPE_TEXT => 'CLOB',
+        SchemaPDOOracle::TYPE_TINYINT => 'NUMBER(3)',
+        SchemaPDOOracle::TYPE_SMALLINT => 'NUMBER(5)',
+        SchemaPDOOracle::TYPE_INTEGER => 'NUMBER(10)',
+        SchemaPDOOracle::TYPE_BIGINT => 'NUMBER(20)',
+        SchemaPDOOracle::TYPE_FLOAT => 'NUMBER',
+        SchemaPDOOracle::TYPE_DOUBLE => 'NUMBER',
+        SchemaPDOOracle::TYPE_DECIMAL => 'NUMBER',
+        SchemaPDOOracle::TYPE_DATETIME => 'TIMESTAMP',
+        SchemaPDOOracle::TYPE_TIMESTAMP => 'TIMESTAMP',
+        SchemaPDOOracle::TYPE_TIME => 'TIMESTAMP',
+        SchemaPDOOracle::TYPE_DATE => 'DATE',
+        SchemaPDOOracle::TYPE_BINARY => 'BLOB',
+        SchemaPDOOracle::TYPE_BOOLEAN => 'NUMBER(1)',
+        SchemaPDOOracle::TYPE_MONEY => 'NUMBER(19,4)',
     ];
 
     public function __construct(private ConnectionInterface $db)

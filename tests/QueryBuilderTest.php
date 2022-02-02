@@ -7,8 +7,9 @@ namespace Yiisoft\Db\Oracle\Tests;
 use Closure;
 use Yiisoft\Arrays\ArrayHelper;
 use Yiisoft\Db\Connection\ConnectionInterface;
-use Yiisoft\Db\Oracle\QueryBuilder;
+use Yiisoft\Db\Oracle\PDO\QueryBuilderPDOOracle;
 use yiisoft\Db\Query\Query;
+use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\TestSupport\TestQueryBuilderTrait;
 
 /**
@@ -26,21 +27,9 @@ final class QueryBuilderTest extends TestCase
         '!' => '!!',
     ];
 
-    protected function getQueryBuilder(ConnectionInterface $db): QueryBuilder
+    protected function getQueryBuilder(ConnectionInterface $db): QueryBuilderInterface
     {
-        return new QueryBuilder($this->getConnection($db));
-    }
-
-    /**
-     * @dataProvider addDropChecksProviderTrait
-     *
-     * @param string $sql
-     * @param Closure $builder
-     */
-    public function testAddDropCheck(string $sql, Closure $builder): void
-    {
-        $db = $this->getConnection();
-        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
+        return new QueryBuilderPDOOracle($this->getConnection($db));
     }
 
     public function addDropForeignKeysProvider()
@@ -51,19 +40,19 @@ final class QueryBuilderTest extends TestCase
         return [
             'drop' => [
                 "ALTER TABLE {{{$tableName}}} DROP CONSTRAINT [[$name]]",
-                function (QueryBuilder $qb) use ($tableName, $name) {
+                function (QueryBuilderInterface $qb) use ($tableName, $name) {
                     return $qb->dropForeignKey($name, $tableName);
                 },
             ],
             'add' => [
                 "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] FOREIGN KEY ([[C_fk_id_1]]) REFERENCES {{{$pkTableName}}} ([[C_id_1]]) ON DELETE CASCADE",
-                function (QueryBuilder $qb) use ($tableName, $name, $pkTableName) {
+                function (QueryBuilderInterface $qb) use ($tableName, $name, $pkTableName) {
                     return $qb->addForeignKey($name, $tableName, 'C_fk_id_1', $pkTableName, 'C_id_1', 'CASCADE');
                 },
             ],
             'add (2 columns)' => [
                 "ALTER TABLE {{{$tableName}}} ADD CONSTRAINT [[$name]] FOREIGN KEY ([[C_fk_id_1]], [[C_fk_id_2]]) REFERENCES {{{$pkTableName}}} ([[C_id_1]], [[C_id_2]]) ON DELETE CASCADE",
-                function (QueryBuilder $qb) use ($tableName, $name, $pkTableName) {
+                function (QueryBuilderInterface $qb) use ($tableName, $name, $pkTableName) {
                     return $qb->addForeignKey($name, $tableName, 'C_fk_id_1, C_fk_id_2', $pkTableName, 'C_id_1, C_id_2', 'CASCADE');
                 },
             ],

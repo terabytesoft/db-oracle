@@ -6,9 +6,9 @@ namespace Yiisoft\Db\Oracle\Tests;
 
 use Exception;
 use PHPUnit\Framework\TestCase as AbstractTestCase;
-use Yiisoft\Db\Oracle\ConnectionPDOOracle;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Driver\PDODriver;
+use Yiisoft\Db\Oracle\PDO\ConnectionPDOOracle;
 use Yiisoft\Db\TestSupport\TestTrait;
 
 class TestCase extends AbstractTestCase
