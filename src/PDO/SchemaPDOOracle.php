@@ -11,7 +11,6 @@ use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
-use Yiisoft\Db\Constraint\ConstraintFinderInterface;
 use Yiisoft\Db\Constraint\ConstraintFinderTrait;
 use Yiisoft\Db\Constraint\ForeignKeyConstraint;
 use Yiisoft\Db\Constraint\IndexConstraint;
@@ -24,7 +23,7 @@ use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Oracle\ColumnSchema;
 use Yiisoft\Db\Oracle\ColumnSchemaBuilder;
 use Yiisoft\Db\Oracle\TableSchema;
-use Yiisoft\Db\Schema\Schema as AbstractSchema;
+use Yiisoft\Db\Schema\Schema;
 
 /**
  * Schema is the class for retrieving metadata from an Oracle database.
@@ -47,10 +46,8 @@ use Yiisoft\Db\Schema\Schema as AbstractSchema;
  *   }
  * >
  */
-final class SchemaPDOOracle extends AbstractSchema implements ConstraintFinderInterface
+final class SchemaPDOOracle extends Schema
 {
-    use ConstraintFinderTrait;
-
     /**
      * @var array map of DB errors and corresponding exceptions.
      *

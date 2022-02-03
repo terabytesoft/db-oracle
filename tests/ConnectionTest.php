@@ -9,8 +9,8 @@ use Yiisoft\Cache\CacheKeyNormalizer;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
+use Yiisoft\Db\Oracle\PDO\TransactionPDOOracle;
 use Yiisoft\Db\TestSupport\TestConnectionTrait;
-use Yiisoft\Db\Transaction\Transaction;
 
 /**
  * @group oracle
@@ -118,30 +118,24 @@ final class ConnectionTest extends TestCase
     {
         $db = $this->getConnection();
 
-        $transaction = $db->beginTransaction(Transaction::READ_COMMITTED);
+        $transaction = $db->beginTransaction(TransactionPDOOracle::READ_COMMITTED);
         $transaction->commit();
         /* should not be any exception so far */
         $this->assertTrue(true);
 
-        $transaction = $db->beginTransaction(Transaction::SERIALIZABLE);
+        $transaction = $db->beginTransaction(TransactionPDOOracle::SERIALIZABLE);
         $transaction->commit();
         /* should not be any exception so far */
         $this->assertTrue(true);
     }
 
-    /**
-     * Note: The READ UNCOMMITTED isolation level allows dirty reads. Oracle Database doesn't use dirty reads, nor does
-     * it even allow them.
-     *
-     * Change Transaction::READ_UNCOMMITTED => Transaction::READ_COMMITTED.
-     */
     public function testTransactionShortcutCustom()
     {
         $db = $this->getConnection(true);
         $result = $db->transaction(static function (ConnectionInterface $db) {
             $db->createCommand()->insert('profile', ['description' => 'test transaction shortcut'])->execute();
             return true;
-        }, Transaction::READ_COMMITTED);
+        }, TransactionPDOOracle::READ_COMMITTED);
         $this->assertTrue($result, 'transaction shortcut valid value should be returned from callback');
 
         $profilesCount = $db->createCommand(

@@ -20,13 +20,13 @@ use Yiisoft\Db\Oracle\Conditions\LikeConditionBuilder;
 use Yiisoft\Db\Query\Conditions\InCondition;
 use Yiisoft\Db\Query\Conditions\LikeCondition;
 use Yiisoft\Db\Query\Query;
-use Yiisoft\Db\Query\QueryBuilder as AbstractQueryBuilder;
+use Yiisoft\Db\Query\QueryBuilder;
 use Yiisoft\Strings\NumericHelper;
 
 /**
  * QueryBuilder is the query builder for Oracle databases.
  */
-final class QueryBuilderPDOOracle extends AbstractQueryBuilder
+final class QueryBuilderPDOOracle extends QueryBuilder
 {
     /**
      * @var array mapping from abstract column types (keys) to physical column types (values).

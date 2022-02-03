@@ -20,6 +20,7 @@ use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\Quoter;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
+use Yiisoft\Db\Transaction\TransactionInterface;
 
 use function constant;
 
@@ -100,6 +101,11 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         }
 
         return $command->bindValues($params);
+    }
+
+    public function createTransaction(): TransactionInterface
+    {
+        return new TransactionPDOOracle($this);
     }
 
     public function close(): void

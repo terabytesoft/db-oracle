@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Yiisoft\Db\Oracle\PDO;
 
 use PDO;
+use PDOException;
 use Yiisoft\Db\Cache\QueryCache;
 use Yiisoft\Db\Command\Command;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
+use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
@@ -51,9 +53,9 @@ final class CommandPDOOracle extends Command
         try {
             $this->pdoStatement = $pdo->prepare($sql);
             $this->bindPendingParams();
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             $message = $e->getMessage() . "\nFailed to prepare SQL: $sql";
-            $errorInfo = $e instanceof PDOException ? $e->errorInfo : null;
+            $errorInfo = $e->errorInfo ?? null;
 
             throw new Exception($message, $errorInfo, $e);
         }
