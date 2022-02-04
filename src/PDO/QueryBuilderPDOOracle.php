@@ -170,12 +170,12 @@ final class QueryBuilderPDOOracle extends QueryBuilder
      * or 1.
      *
      * @param string $tableName the name of the table whose primary key sequence will be reset.
-     * @param array|string|null $value the value for the primary key of the next new row inserted. If this is not set,
-     * the next new row's primary key will have a value 1.
+     * @param array|int|string|null $value the value for the primary key of the next new row inserted. If this is not
+     * set, the next new row's primary key will have a value 1.
      *
      * @throws Exception|InvalidArgumentException|InvalidConfigException|Throwable
      */
-    public function executeResetSequence(string $tableName, array|string $value = null): void
+    public function executeResetSequence(string $tableName, array|int|string $value = null): void
     {
         $tableSchema = $this->db->getTableSchema($tableName);
 
