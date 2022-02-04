@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Yiisoft\Db\Oracle\Tests;
 
 use Closure;
-use Yiisoft\Db\Command\DDLCommand;
 use Yiisoft\Db\Exception\NotSupportedException;
+use Yiisoft\Db\Oracle\DDLCommand;
 
 /**
  * @group mysql
@@ -44,5 +44,33 @@ final class DDLCommandTest extends TestCase
     {
         $db = $this->getConnection();
         $this->assertSame($db->getQuoter()->quoteSql($sql), $builder(new DDLCommand($db->getQuoter())));
+    }
+
+    public function testCommentColumn()
+    {
+        $db = $this->getConnection();
+        $ddl = new DDLCommand($db->getQuoter());
+
+        $expected = "COMMENT ON COLUMN [[comment]].[[text]] IS 'This is my column.'";
+        $sql = $ddl->addCommentOnColumn('comment', 'text', 'This is my column.');
+        $this->assertEquals($this->replaceQuotes($expected), $sql);
+
+        $expected = "COMMENT ON COLUMN [[comment]].[[text]] IS ''";
+        $sql = $ddl->dropCommentFromColumn('comment', 'text');
+        $this->assertEquals($this->replaceQuotes($expected), $sql);
+    }
+
+    public function testCommentTable()
+    {
+        $db = $this->getConnection();
+        $ddl = new DDLCommand($db->getQuoter());
+
+        $expected = "COMMENT ON TABLE [[comment]] IS 'This is my table.'";
+        $sql = $ddl->addCommentOnTable('comment', 'This is my table.');
+        $this->assertEquals($this->replaceQuotes($expected), $sql);
+
+        $expected = "COMMENT ON TABLE [[comment]] IS ''";
+        $sql = $ddl->dropCommentFromTable('comment');
+        $this->assertEquals($this->replaceQuotes($expected), $sql);
     }
 }

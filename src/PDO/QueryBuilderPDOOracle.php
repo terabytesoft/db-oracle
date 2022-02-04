@@ -453,16 +453,6 @@ final class QueryBuilderPDOOracle extends QueryBuilder
         return 'SELECT CASE WHEN EXISTS(' . $rawSql . ') THEN 1 ELSE 0 END FROM DUAL';
     }
 
-    public function dropCommentFromColumn(string $table, string $column): string
-    {
-        return 'COMMENT ON COLUMN ' . $this->db->getQuoter()->quoteTableName($table) . '.' . $this->db->getQuoter()->quoteColumnName($column) . " IS ''";
-    }
-
-    public function dropCommentFromTable(string $table): string
-    {
-        return 'COMMENT ON TABLE ' . $this->db->getQuoter()->quoteTableName($table) . " IS ''";
-    }
-
     protected function defaultExpressionBuilders(): array
     {
         return array_merge(parent::defaultExpressionBuilders(), [

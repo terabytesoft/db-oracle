@@ -262,34 +262,6 @@ final class QueryBuilderTest extends TestCase
         $this->assertEquals($expectedQueryParams, $actualQueryParams);
     }
 
-    public function testCommentColumn()
-    {
-        $db = $this->getConnection();
-        $qb = $this->getQueryBuilder($db);
-
-        $expected = "COMMENT ON COLUMN [[comment]].[[text]] IS 'This is my column.'";
-        $sql = $qb->addCommentOnColumn('comment', 'text', 'This is my column.');
-        $this->assertEquals($this->replaceQuotes($expected), $sql);
-
-        $expected = "COMMENT ON COLUMN [[comment]].[[text]] IS ''";
-        $sql = $qb->dropCommentFromColumn('comment', 'text');
-        $this->assertEquals($this->replaceQuotes($expected), $sql);
-    }
-
-    public function testCommentTable()
-    {
-        $db = $this->getConnection();
-        $qb = $this->getQueryBuilder($db);
-
-        $expected = "COMMENT ON TABLE [[comment]] IS 'This is my table.'";
-        $sql = $qb->addCommentOnTable('comment', 'This is my table.');
-        $this->assertEquals($this->replaceQuotes($expected), $sql);
-
-        $expected = "COMMENT ON TABLE [[comment]] IS ''";
-        $sql = $qb->dropCommentFromTable('comment');
-        $this->assertEquals($this->replaceQuotes($expected), $sql);
-    }
-
     public function createDropIndexesProvider(): array
     {
         $result = $this->createDropIndexesProviderTrait();
