@@ -11,11 +11,11 @@ use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
-use Yiisoft\Db\Constraint\ConstraintFinderTrait;
 use Yiisoft\Db\Constraint\ForeignKeyConstraint;
 use Yiisoft\Db\Constraint\IndexConstraint;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\IntegrityException;
+use Yiisoft\Db\Exception\InvalidArgumentException;
 use Yiisoft\Db\Exception\InvalidCallException;
 use Yiisoft\Db\Exception\InvalidConfigException;
 use Yiisoft\Db\Exception\NotSupportedException;
@@ -23,6 +23,7 @@ use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Oracle\ColumnSchema;
 use Yiisoft\Db\Oracle\ColumnSchemaBuilder;
 use Yiisoft\Db\Oracle\TableSchema;
+use Yiisoft\Db\Query\QueryBuilder;
 use Yiisoft\Db\Schema\Schema;
 
 /**
@@ -56,9 +57,6 @@ final class SchemaPDOOracle extends Schema
     protected array $exceptionMap = [
         'ORA-00001: unique constraint' => IntegrityException::class,
     ];
-    protected $tableQuoteCharacter = '"';
-
-    private ?string $serverVersion = null;
 
     public function __construct(private ConnectionPDOInterface $db, SchemaCache $schemaCache)
     {
@@ -293,12 +291,7 @@ final class SchemaPDOOracle extends Schema
 
     public function quoteSimpleTableName(string $name): string
     {
-        return strpos($name, '"') !== false ? $name : '"' . $name . '"';
-    }
-
-    public function createQueryBuilder(): QueryBuilder
-    {
-        return new QueryBuilder($this->db);
+        return str_contains($name, '"') ? $name : '"' . $name . '"';
     }
 
     /**
@@ -307,11 +300,11 @@ final class SchemaPDOOracle extends Schema
      * This method may be overridden by child classes to create a DBMS-specific column schema builder.
      *
      * @param string $type type of the column. See {@see ColumnSchemaBuilder::$type}.
-     * @param array|int|string $length length or precision of the column {@see ColumnSchemaBuilder::$length}.
+     * @param array|int|string|null $length length or precision of the column {@see ColumnSchemaBuilder::$length}.
      *
      * @return ColumnSchemaBuilder column schema builder instance
      */
-    public function createColumnSchemaBuilder(string $type, $length = null): ColumnSchemaBuilder
+    public function createColumnSchemaBuilder(string $type, array|int|string $length = null): ColumnSchemaBuilder
     {
         return new ColumnSchemaBuilder($type, $length);
     }
@@ -406,11 +399,11 @@ SQL;
      *
      * @throws Exception|InvalidConfigException|Throwable
      *
-     * @return string|null whether the sequence exists.
+     * @return int|null|string whether the sequence exists.
      *
      * @internal TableSchema `$table->getName()` the table schema.
      */
-    protected function getTableSequenceName(string $tableName): ?string
+    protected function getTableSequenceName(string $tableName): string|int|null
     {
         $sequenceNameSql = <<<SQL
 SELECT
@@ -447,7 +440,7 @@ SQL;
             $sequenceName = $this->quoteSimpleTableName($sequenceName);
 
             return $this->db->useMaster(function (ConnectionPDOInterface $db) use ($sequenceName) {
-                return $db->createCommand("SELECT {$sequenceName}.CURRVAL FROM DUAL")->queryScalar();
+                return $db->createCommand("SELECT $sequenceName.CURRVAL FROM DUAL")->queryScalar();
             });
         }
 
@@ -461,7 +454,7 @@ SQL;
      *
      * @return ColumnSchema
      */
-    protected function createColumn($column): ColumnSchema
+    protected function createColumn(array|string $column): ColumnSchema
     {
         $c = $this->createColumnSchema();
 
@@ -588,7 +581,6 @@ SQL;
 
         foreach ($constraints as $constraint) {
             $name = current(array_keys($constraint));
-
             $table->foreignKey(array_merge([$constraint['tableName']], $constraint['columns']));
         }
     }
@@ -657,21 +649,21 @@ SQL;
     ): void {
         $column->dbType($dbType);
 
-        if (strpos($dbType, 'FLOAT') !== false || strpos($dbType, 'DOUBLE') !== false) {
+        if (str_contains($dbType, 'FLOAT') || str_contains($dbType, 'DOUBLE')) {
             $column->type('double');
-        } elseif (strpos($dbType, 'NUMBER') !== false) {
+        } elseif (str_contains($dbType, 'NUMBER')) {
             if ($scale === null || $scale > 0) {
                 $column->type('decimal');
             } else {
                 $column->type('integer');
             }
-        } elseif (strpos($dbType, 'INTEGER') !== false) {
+        } elseif (str_contains($dbType, 'INTEGER')) {
             $column->type('integer');
-        } elseif (strpos($dbType, 'BLOB') !== false) {
+        } elseif (str_contains($dbType, 'BLOB')) {
             $column->type('binary');
-        } elseif (strpos($dbType, 'CLOB') !== false) {
+        } elseif (str_contains($dbType, 'CLOB')) {
             $column->type('text');
-        } elseif (strpos($dbType, 'TIMESTAMP') !== false) {
+        } elseif (str_contains($dbType, 'TIMESTAMP')) {
             $column->type('timestamp');
         } else {
             $column->type('string');
@@ -699,7 +691,10 @@ SQL;
         $column->scale($scale === '' || $scale === null ? null : (int) $scale);
     }
 
-    public function insert($table, $columns)
+    /**
+     * @throws Exception|InvalidArgumentException|InvalidConfigException|NotSupportedException|Throwable
+     */
+    public function insert($table, $columns): bool|array
     {
         $params = [];
         $returnParams = [];
@@ -767,7 +762,7 @@ SQL;
      *
      * @return mixed constraints.
      */
-    private function loadTableConstraints(string $tableName, string $returnType)
+    private function loadTableConstraints(string $tableName, string $returnType): mixed
     {
         $sql = <<<SQL
         SELECT
@@ -890,7 +885,7 @@ SQL;
      */
     public function getRawTableName(string $name): string
     {
-        if (strpos($name, '{{') !== false) {
+        if (str_contains($name, '{{')) {
             $name = preg_replace('/{{(.*?)}}/', '\1', $name);
 
             return str_replace('%', $this->db->getTablePrefix(), $name);
@@ -963,22 +958,6 @@ SQL;
     public function supportsSavepoint(): bool
     {
         return $this->db->isSavepointEnabled();
-    }
-
-    /**
-     * Returns a server version as a string comparable by {@see version_compare()}.
-     *
-     * @throws Exception
-     *
-     * @return string server version as a string.
-     */
-    public function getServerVersion(): string
-    {
-        if ($this->serverVersion === null) {
-            $this->serverVersion = $this->db->getSlavePdo()->getAttribute(PDO::ATTR_SERVER_VERSION);
-        }
-
-        return $this->serverVersion;
     }
 
     /**

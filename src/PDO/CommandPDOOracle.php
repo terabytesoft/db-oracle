@@ -21,9 +21,9 @@ final class CommandPDOOracle extends Command
 {
     public function __construct(
         private ConnectionPDOInterface $db,
-        private QueryBuilderInterface $queryBuilder,
-        private QueryCache $queryCache,
-        private QuoterInterface $quoter,
+        QueryBuilderInterface $queryBuilder,
+        QueryCache $queryCache,
+        QuoterInterface $quoter,
         private SchemaInterface $schema
     ) {
         parent::__construct($queryBuilder, $queryCache, $quoter, $schema);
