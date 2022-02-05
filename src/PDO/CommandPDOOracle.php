@@ -11,6 +11,7 @@ use Yiisoft\Db\Command\Command;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Oracle\DDLCommand;
+use Yiisoft\Db\Oracle\DMLCommand;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
@@ -33,6 +34,11 @@ final class CommandPDOOracle extends Command
     public function getDDLCommand(): DDLCommand
     {
         return new DDLCommand($this->quoter);
+    }
+
+    public function getDMLCommand(): DMLCommand
+    {
+        return new DMLCommand($this->quoter);
     }
 
     public function prepare(?bool $forRead = null): void
