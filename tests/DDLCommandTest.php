@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Yiisoft\Db\Oracle\Tests;
 
 use Closure;
+use InvalidArgumentException;
+use Yiisoft\Arrays\ArrayHelper;
 use Yiisoft\Db\Exception\NotSupportedException;
+use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Oracle\DDLCommand;
+use Yiisoft\Db\Query\Query;
 
 /**
- * @group mysql
+ * @group oracle
  */
 final class DDLCommandTest extends TestCase
 {

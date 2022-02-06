@@ -15,6 +15,7 @@ use Yiisoft\Db\Oracle\DMLCommand;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
+use Yiisoft\Db\Query\Query;
 
 /**
  * Command represents an Oracle SQL statement to be executed against a database.
@@ -23,7 +24,7 @@ final class CommandPDOOracle extends Command
 {
     public function __construct(
         private ConnectionPDOInterface $db,
-        QueryBuilderInterface $queryBuilder,
+        private QueryBuilderInterface $queryBuilder,
         QueryCache $queryCache,
         private QuoterInterface $quoter,
         private SchemaInterface $schema
@@ -38,7 +39,7 @@ final class CommandPDOOracle extends Command
 
     public function getDMLCommand(): DMLCommand
     {
-        return new DMLCommand($this->quoter);
+        return new DMLCommand(new Query($this->db), $this->queryBuilder, $this->quoter);
     }
 
     public function prepare(?bool $forRead = null): void

@@ -16,7 +16,10 @@ final class DDLCommand extends AbstractDDLCommand
 
     public function dropCommentFromColumn(string $table, string $column): string
     {
-        return 'COMMENT ON COLUMN ' . $this->quoter->quoteTableName($table) . '.' . $this->quoter->quoteColumnName($column)
+        return 'COMMENT ON COLUMN '
+            . $this->quoter->quoteTableName($table)
+            . '.'
+            . $this->quoter->quoteColumnName($column)
             . " IS ''";
     }
 

@@ -228,7 +228,7 @@ final class QueryBuilderPDOOracle extends QueryBuilder
         return $sql;
     }
 
-    protected function prepareInsertValues(string $table, $columns, array $params = []): array
+    public function prepareInsertValues(string $table, $columns, array $params = []): array
     {
         [$names, $placeholders, $values, $params] = parent::prepareInsertValues($table, $columns, $params);
 
@@ -247,110 +247,6 @@ final class QueryBuilderPDOOracle extends QueryBuilder
         }
 
         return [$names, $placeholders, $values, $params];
-    }
-
-    /**
-     * {@see https://docs.oracle.com/cd/B28359_01/server.111/b28286/statements_9016.htm#SQLRF01606}
-     *
-     * @param string $table
-     * @param $insertColumns
-     * @param $updateColumns
-     * @param array $params
-     *
-     * @throws Exception|InvalidArgumentException|InvalidConfigException|JsonException|NotSupportedException
-     *
-     * @return string
-     */
-    public function upsert(string $table, $insertColumns, $updateColumns, array &$params = []): string
-    {
-        $constraints = [];
-
-        /** @var Constraint[] $constraints */
-        [$uniqueNames, $insertNames, $updateNames] = $this->prepareUpsertColumns(
-            $table,
-            $insertColumns,
-            $updateColumns,
-            $constraints
-        );
-
-        if (empty($uniqueNames)) {
-            return $this->insert($table, $insertColumns, $params);
-        }
-
-        if ($updateNames === []) {
-            /** there are no columns to update */
-            $updateColumns = false;
-        }
-
-        $onCondition = ['or'];
-        $quotedTableName = $this->db->getQuoter()->quoteTableName($table);
-
-        foreach ($constraints as $constraint) {
-            $constraintCondition = ['and'];
-            foreach ($constraint->getColumnNames() as $name) {
-                $quotedName = $this->db->getQuoter()->quoteColumnName($name);
-                $constraintCondition[] = "$quotedTableName.$quotedName=\"EXCLUDED\".$quotedName";
-            }
-
-            $onCondition[] = $constraintCondition;
-        }
-
-        $on = $this->buildCondition($onCondition, $params);
-
-        [, $placeholders, $values, $params] = $this->prepareInsertValues($table, $insertColumns, $params);
-
-        if (!empty($placeholders)) {
-            $usingSelectValues = [];
-            foreach ($insertNames as $index => $name) {
-                $usingSelectValues[$name] = new Expression($placeholders[$index]);
-            }
-
-            $usingSubQuery = (new Query($this->db))
-                ->select($usingSelectValues)
-                ->from('DUAL');
-
-            [$usingValues, $params] = $this->build($usingSubQuery, $params);
-        }
-
-        $mergeSql = 'MERGE INTO ' . $this->db->getQuoter()->quoteTableName($table) . ' '
-            . 'USING (' . ($usingValues ?? ltrim($values, ' ')) . ') "EXCLUDED" '
-            . "ON ($on)";
-
-        $insertValues = [];
-        foreach ($insertNames as $name) {
-            $quotedName = $this->db->getQuoter()->quoteColumnName($name);
-
-            if (strrpos($quotedName, '.') === false) {
-                $quotedName = '"EXCLUDED".' . $quotedName;
-            }
-
-            $insertValues[] = $quotedName;
-        }
-
-        $insertSql = 'INSERT (' . implode(', ', $insertNames) . ')'
-            . ' VALUES (' . implode(', ', $insertValues) . ')';
-
-        if ($updateColumns === false) {
-            return "$mergeSql WHEN NOT MATCHED THEN $insertSql";
-        }
-
-        if ($updateColumns === true) {
-            $updateColumns = [];
-            foreach ($updateNames as $name) {
-                $quotedName = $this->db->getQuoter()->quoteColumnName($name);
-
-                if (strrpos($quotedName, '.') === false) {
-                    $quotedName = '"EXCLUDED".' . $quotedName;
-                }
-                $updateColumns[$name] = new Expression($quotedName);
-            }
-        }
-
-        [$updates, $params] = $this->prepareUpdateSets($table, $updateColumns, $params);
-
-        $updateSql = 'UPDATE SET ' . implode(', ', $updates);
-
-        return "$mergeSql WHEN MATCHED THEN $updateSql WHEN NOT MATCHED THEN $insertSql";
     }
 
     /**
