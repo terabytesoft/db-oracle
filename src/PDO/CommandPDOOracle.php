@@ -21,16 +21,14 @@ final class CommandPDOOracle extends Command
 {
     private int $i = 0;
 
-    public function __construct(
-        private ConnectionPDOInterface $db,
-        QueryCache $queryCache
-    ) {
+    public function __construct(private ConnectionPDOInterface $db, QueryCache $queryCache)
+    {
         parent::__construct($queryCache);
     }
 
     public function queryBuilder(): QueryBuilderInterface
     {
-        return new QueryBuilderPDOOracle($this, $this->db->getQuery(), $this->db->getQuoter(), $this->db->getSchema());
+        return $this->db->getQueryBuilder();
     }
 
     public function prepare(?bool $forRead = null): void
@@ -114,7 +112,7 @@ final class CommandPDOOracle extends Command
                     $this->pdoStatement->execute();
                 }
                 break;
-            } catch (\Exception $e) {
+            } catch (PDOException $e) {
                 $rawSql = $rawSql ?: $this->getRawSql();
                 $e = $this->db->getSchema()->convertException($e, $rawSql);
 
