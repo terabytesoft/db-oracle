@@ -10,36 +10,27 @@ use Yiisoft\Db\Cache\QueryCache;
 use Yiisoft\Db\Command\Command;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Exception\Exception;
-use Yiisoft\Db\Oracle\DDLCommand;
-use Yiisoft\Db\Oracle\DMLCommand;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
-use Yiisoft\Db\Query\Query;
 
 /**
  * Command represents an Oracle SQL statement to be executed against a database.
  */
 final class CommandPDOOracle extends Command
 {
+    private int $i = 0;
+
     public function __construct(
         private ConnectionPDOInterface $db,
-        private QueryBuilderInterface $queryBuilder,
-        QueryCache $queryCache,
-        private QuoterInterface $quoter,
-        private SchemaInterface $schema
+        QueryCache $queryCache
     ) {
-        parent::__construct($queryBuilder, $queryCache, $quoter, $schema);
+        parent::__construct($queryCache);
     }
 
-    public function getDDLCommand(): DDLCommand
+    public function queryBuilder(): QueryBuilderInterface
     {
-        return new DDLCommand($this->quoter);
-    }
-
-    public function getDMLCommand(): DMLCommand
-    {
-        return new DMLCommand(new Query($this->db), $this->queryBuilder, $this->quoter);
+        return new QueryBuilderPDOOracle($this, $this->db->getQuery(), $this->db->getQuoter(), $this->db->getSchema());
     }
 
     public function prepare(?bool $forRead = null): void
@@ -57,7 +48,7 @@ final class CommandPDOOracle extends Command
             $forRead = false;
         }
 
-        if ($forRead || ($forRead === null && $this->schema->isReadQuery($sql))) {
+        if ($forRead || ($forRead === null && $this->db->getSchema()->isReadQuery($sql))) {
             $pdo = $this->db->getSlavePdo();
         } else {
             $pdo = $this->db->getMasterPdo();
@@ -77,19 +68,18 @@ final class CommandPDOOracle extends Command
     protected function bindPendingParams(): void
     {
         $paramsPassedByReference = [];
-        $pdoStatement = $this->getPdoStatement();
 
         foreach ($this->pendingParams as $name => $value) {
             if (PDO::PARAM_STR === $value[1]) {
                 $paramsPassedByReference[$name] = $value[0];
-                $pdoStatement?->bindParam(
+                $this->pdoStatement?->bindParam(
                     $name,
                     $paramsPassedByReference[$name],
                     $value[1],
                     strlen($value[0])
                 );
             } else {
-                $pdoStatement?->bindValue($name, $value[0], $value[1]);
+                $this->pdoStatement?->bindValue($name, $value[0], $value[1]);
             }
         }
 
@@ -126,7 +116,7 @@ final class CommandPDOOracle extends Command
                 break;
             } catch (\Exception $e) {
                 $rawSql = $rawSql ?: $this->getRawSql();
-                $e = $this->schema->convertException($e, $rawSql);
+                $e = $this->db->getSchema()->convertException($e, $rawSql);
 
                 if ($this->retryHandler === null || !($this->retryHandler)($e, $attempt)) {
                     throw $e;

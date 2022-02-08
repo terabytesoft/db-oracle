@@ -14,6 +14,7 @@ use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Driver\PDODriver;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
+use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\Quoter;
 use Yiisoft\Db\Schema\QuoterInterface;
@@ -28,6 +29,7 @@ use function constant;
 final class ConnectionPDOOracle extends Connection implements ConnectionPDOInterface
 {
     private ?PDO $pdo = null;
+    private ?Query $query = null;
     private ?QueryBuilderInterface $queryBuilder = null;
     private ?QuoterInterface $quoter = null;
     private ?SchemaInterface $schema = null;
@@ -80,7 +82,6 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
     {
         $command = new CommandPDOOracle(
             $this,
-            $this->getQueryBuilder(),
             $this->queryCache,
             $this->getQuoter(),
             $this->getSchema()
@@ -157,10 +158,27 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
         return $this->pdo;
     }
 
+    public function getQuery(): Query
+    {
+        if ($this->query === null) {
+            $this->query = new Query($this);
+        }
+
+        return $this->query;
+    }
+
+    /**
+     * @throws Exception|InvalidConfigException
+     */
     public function getQueryBuilder(): QueryBuilderInterface
     {
         if ($this->queryBuilder === null) {
-            $this->queryBuilder = new QueryBuilderPDOOracle($this);
+            $this->queryBuilder = new QueryBuilderPDOOracle(
+                $this->createCommand(),
+                $this->getQuery(),
+                $this->getQuoter(),
+                $this->getSchema(),
+            );
         }
 
         return $this->queryBuilder;

@@ -219,6 +219,20 @@ final class SchemaTest extends TestCase
         ];
     }
 
+    public function testGetTableSchemasWithAttrCase(): void
+    {
+        $db = $this->getConnection();
+
+        // Increment open_cursors oracle.
+        $db->createCommand('ALTER SYSTEM SET open_cursors=500 SCOPE=BOTH')->execute();
+
+        $db->getSlavePDO()->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
+        $this->assertCount(count($db->getSchema()->getTableNames()), $db->getSchema()->getTableSchemas());
+
+        $db->getSlavePDO()->setAttribute(PDO::ATTR_CASE, PDO::CASE_UPPER);
+        $this->assertCount(count($db->getSchema()->getTableNames()), $db->getSchema()->getTableSchemas());
+    }
+
     public function testCompositeFk(): void
     {
         $this->markTestSkipped('should be fixed.');

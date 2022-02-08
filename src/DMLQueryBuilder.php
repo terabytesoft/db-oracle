@@ -6,28 +6,23 @@ namespace Yiisoft\Db\Oracle;
 
 use InvalidArgumentException;
 use JsonException;
-use Throwable;
-use Yiisoft\Db\Command\DMLCommand as AbstractDMLCommand;
+use JsonSchema\Constraints\Constraint;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
 use Yiisoft\Db\Exception\NotSupportedException;
 use Yiisoft\Db\Expression\Expression;
-use Yiisoft\Db\Query\Query;
+use Yiisoft\Db\Query\DMLQueryBuilder as AbstractDMLQueryBuilder;
 use Yiisoft\Db\Query\QueryBuilderInterface;
-use Yiisoft\Db\Schema\QuoterInterface;
 
-final class DMLCommand extends AbstractDMLCommand
+final class DMLQueryBuilder extends AbstractDMLQueryBuilder
 {
-    public function __construct(
-        private Query $query,
-        private QueryBuilderInterface $queryBuilder,
-        private QuoterInterface $quoter
-    ) {
-        parent::__construct($queryBuilder, $quoter);
+    public function __construct(private QueryBuilderInterface $queryBuilder)
+    {
+        parent::__construct($queryBuilder);
     }
 
     /**
-     * {@see https://docs.oracle.com/cd/B28359_01/server.111/b28286/statements_9016.htm#SQLRF01606}
+     * @link https://docs.oracle.com/cd/B28359_01/server.111/b28286/statements_9016.htm#SQLRF01606
      *
      * @param string $table
      * @param $insertColumns
@@ -60,12 +55,12 @@ final class DMLCommand extends AbstractDMLCommand
         }
 
         $onCondition = ['or'];
-        $quotedTableName = $this->quoter->quoteTableName($table);
+        $quotedTableName = $this->queryBuilder->quoter()->quoteTableName($table);
 
         foreach ($constraints as $constraint) {
             $constraintCondition = ['and'];
             foreach ($constraint->getColumnNames() as $name) {
-                $quotedName = $this->quoter->quoteColumnName($name);
+                $quotedName = $this->queryBuilder->quoter()->quoteColumnName($name);
                 $constraintCondition[] = "$quotedTableName.$quotedName=\"EXCLUDED\".$quotedName";
             }
 
@@ -81,20 +76,20 @@ final class DMLCommand extends AbstractDMLCommand
                 $usingSelectValues[$name] = new Expression($placeholders[$index]);
             }
 
-            $usingSubQuery = $this->query->select($usingSelectValues)->from('DUAL');
+            $usingSubQuery = $this->queryBuilder->query()->select($usingSelectValues)->from('DUAL');
             [$usingValues, $params] = $this->queryBuilder->build($usingSubQuery, $params);
         }
 
         $insertValues = [];
         $mergeSql = 'MERGE INTO '
-            . $this->quoter->quoteTableName($table)
+            . $this->queryBuilder->quoter()->quoteTableName($table)
             . ' '
             . 'USING (' . ($usingValues ?? ltrim($values, ' '))
             . ') "EXCLUDED" '
             . "ON ($on)";
 
         foreach ($insertNames as $name) {
-            $quotedName = $this->quoter->quoteColumnName($name);
+            $quotedName = $this->queryBuilder->quoter()->quoteColumnName($name);
 
             if (strrpos($quotedName, '.') === false) {
                 $quotedName = '"EXCLUDED".' . $quotedName;
@@ -112,7 +107,7 @@ final class DMLCommand extends AbstractDMLCommand
         if ($updateColumns === true) {
             $updateColumns = [];
             foreach ($updateNames as $name) {
-                $quotedName = $this->quoter->quoteColumnName($name);
+                $quotedName = $this->queryBuilder->quoter()->quoteColumnName($name);
 
                 if (strrpos($quotedName, '.') === false) {
                     $quotedName = '"EXCLUDED".' . $quotedName;
@@ -122,7 +117,6 @@ final class DMLCommand extends AbstractDMLCommand
         }
 
         [$updates, $params] = $this->queryBuilder->prepareUpdateSets($table, $updateColumns, $params);
-
         $updateSql = 'UPDATE SET ' . implode(', ', $updates);
 
         return "$mergeSql WHEN MATCHED THEN $updateSql WHEN NOT MATCHED THEN $insertSql";

@@ -406,15 +406,15 @@ SQL;
     protected function getTableSequenceName(string $tableName): string|int|null
     {
         $sequenceNameSql = <<<SQL
-SELECT
-    UD.REFERENCED_NAME AS SEQUENCE_NAME
-FROM USER_DEPENDENCIES UD
-    JOIN USER_TRIGGERS UT ON (UT.TRIGGER_NAME = UD.NAME)
-WHERE
-    UT.TABLE_NAME = :tableName
-    AND UD.TYPE = 'TRIGGER'
-    AND UD.REFERENCED_TYPE = 'SEQUENCE'
-SQL;
+        SELECT
+            UD.REFERENCED_NAME AS SEQUENCE_NAME
+        FROM USER_DEPENDENCIES UD
+            JOIN USER_TRIGGERS UT ON (UT.TRIGGER_NAME = UD.NAME)
+        WHERE
+            UT.TABLE_NAME = :tableName
+            AND UD.TYPE = 'TRIGGER'
+            AND UD.REFERENCED_TYPE = 'SEQUENCE'
+        SQL;
         $sequenceName = $this->db->createCommand($sequenceNameSql, [':tableName' => $tableName])->queryScalar();
 
         return $sequenceName === false ? null : $sequenceName;
