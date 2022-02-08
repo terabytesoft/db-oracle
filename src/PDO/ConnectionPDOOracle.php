@@ -80,12 +80,7 @@ final class ConnectionPDOOracle extends Connection implements ConnectionPDOInter
 
     public function createCommand(?string $sql = null, array $params = []): CommandPDOOracle
     {
-        $command = new CommandPDOOracle(
-            $this,
-            $this->queryCache,
-            $this->getQuoter(),
-            $this->getSchema()
-        );
+        $command = new CommandPDOOracle($this, $this->queryCache);
 
         if ($sql !== null) {
             $command->setSql($sql);

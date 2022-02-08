@@ -6,7 +6,7 @@ namespace Yiisoft\Db\Oracle;
 
 use InvalidArgumentException;
 use JsonException;
-use JsonSchema\Constraints\Constraint;
+use Yiisoft\Db\Constraint\Constraint;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
 use Yiisoft\Db\Exception\NotSupportedException;
@@ -76,6 +76,7 @@ final class DMLQueryBuilder extends AbstractDMLQueryBuilder
                 $usingSelectValues[$name] = new Expression($placeholders[$index]);
             }
 
+            /** @psalm-suppress UndefinedInterfaceMethod */
             $usingSubQuery = $this->queryBuilder->query()->select($usingSelectValues)->from('DUAL');
             [$usingValues, $params] = $this->queryBuilder->build($usingSubQuery, $params);
         }
