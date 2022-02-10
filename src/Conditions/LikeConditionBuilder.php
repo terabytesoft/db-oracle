@@ -6,6 +6,7 @@ namespace Yiisoft\Db\Oracle\Conditions;
 
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Query\Conditions\LikeConditionBuilder as AbstractLikeConditionBuilder;
+use Yiisoft\Db\Query\QueryBuilderInterface;
 
 final class LikeConditionBuilder extends AbstractLikeConditionBuilder
 {
@@ -24,6 +25,11 @@ final class LikeConditionBuilder extends AbstractLikeConditionBuilder
         '_' => '!_',
         '!' => '!!',
     ];
+
+    public function __construct(private QueryBuilderInterface $queryBuilder)
+    {
+        parent::__construct($queryBuilder);
+    }
 
     public function build(ExpressionInterface $expression, array &$params = []): string
     {

@@ -7,9 +7,15 @@ namespace Yiisoft\Db\Oracle\Conditions;
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Query\Conditions\InCondition;
 use Yiisoft\Db\Query\Conditions\InConditionBuilder as AbstractInConditionBuilder;
+use Yiisoft\Db\Query\QueryBuilderInterface;
 
 final class InConditionBuilder extends AbstractInConditionBuilder
 {
+    public function __construct(private QueryBuilderInterface $queryBuilder)
+    {
+        parent::__construct($queryBuilder);
+    }
+
     /**
      * Method builds the raw SQL from the $expression that will not be additionally
      * escaped or quoted.
